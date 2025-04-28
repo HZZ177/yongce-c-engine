@@ -1,0 +1,14 @@
+# 通过速停车接口删除后付费车辆信息
+host:
+api: '/mc/service/front/v2/postpaid/removePostpaidCar'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "get"
+data:
+  - - id: 1
+    - ps: "删除后付费车辆"
+    - request_data:
+        lpn:
+

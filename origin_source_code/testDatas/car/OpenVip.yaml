@@ -1,0 +1,15 @@
+# 通过速停车接口开通会员
+host:
+api: 'mc/service/front/payment/open_credit/verification'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "post"
+data:
+  - - id: 1
+    - ps: "开通会员"
+    - request_data:
+        lpn:
+        origin: 30
+

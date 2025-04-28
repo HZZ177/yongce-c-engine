@@ -1,0 +1,22 @@
+# 通过中台测试接口查询车辆在场信息
+server: 'cn.keytop.stc.cp.postpaid-ms-service.'
+url: '/service/api/postpaid/presence/selectPostPaidPresenceByPlateNumber'
+sid:
+appKey:
+app_id:
+method: "get"
+headers:
+    sid:
+    appId:
+    timestamp:
+    sign:
+    Content-Type: 'application/json'
+    Accept: 'application/json'
+    version: "1.0.0"
+data:
+  - - id: 1
+    - ps: "查询用户相关信息"
+    - request_data:
+        plateNumber:
+
+

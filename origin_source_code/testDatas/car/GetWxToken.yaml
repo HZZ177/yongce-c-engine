@@ -1,0 +1,11 @@
+# 通过接口查询用户的微信token信息
+host: 'https://cloud.keytop.cn'
+api: '/api/wx/token/all'
+headers:
+  "Content-Type": "text/plain"
+
+data:
+  - - id: 1
+    - ps: "查询用户微信的原始token信息"
+
+

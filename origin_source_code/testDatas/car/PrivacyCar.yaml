@@ -1,0 +1,18 @@
+# 直接通过连接测试数据库查询隐私车牌校验信息
+db:
+  - - host : "120.55.20.180"
+      port : 13308
+      user : "root"
+      password : "Keytop@123"
+      db : "superpark_wx_test"
+
+query:
+  - - id: 1
+    - ps: "查询隐私车牌校验信息"
+    - carNo:
+      keyword:
+        - USER_ID
+      tableName: "bus_user_plate_auth"
+      lotCode:
+
+

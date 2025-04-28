@@ -1,0 +1,13 @@
+# 测试数据库（superpark_wx_test）
+db:
+  - - host : "120.55.20.180"
+      port : 13308
+      user : "root"
+      password : "Keytop@123"
+      db : "superpark_wx_test"
+    - proExample: "速停车只读-成都研发使用-阿里云"
+      proDb: "superpark"
+
+
+
+

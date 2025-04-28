@@ -1,0 +1,16 @@
+# 提交入场通知结果
+host:
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "Accept": "application/json"
+  "token":
+method: "post"
+api: "enableStatusRemind"
+data:
+  - - id: 1
+    - ps: "提交入场通知结果"
+    - request_data:
+        caseNo:
+        enableStatusRemindFlag:
+
+

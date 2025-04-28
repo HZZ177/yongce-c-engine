@@ -1,0 +1,15 @@
+# 通过速停车测试接口修改优惠券可用车牌
+host:
+api: 'mc/service/front/v2/userVipInfo/modifyLpn'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "get"
+data:
+  - - id: 1
+    - ps: "修改优惠券可用车牌"
+    - request_data:
+        lpn:
+
+

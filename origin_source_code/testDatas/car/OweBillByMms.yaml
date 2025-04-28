@@ -1,0 +1,22 @@
+# 通过中台测试接口查询临时账单信息
+server: 'cn.keytop.stc.cp.postpaid-ms-service.'
+url: '/service/api/postpaid/temp/order/queryNotTurnArrears'
+sid:
+appKey:
+app_id:
+method: "post"
+headers:
+    sid:
+    appId:
+    timestamp:
+    sign:
+    Content-Type: 'application/x-www-form-urlencoded; charset=UTF-8'
+    Accept: 'application/json'
+    version: "1.0.0"
+data:
+  - - id: 1
+    - ps: "查询用户相关信息"
+    - request_data:
+        lpn:
+
+

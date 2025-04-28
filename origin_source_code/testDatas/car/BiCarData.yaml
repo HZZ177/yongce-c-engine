@@ -1,0 +1,13 @@
+# 通过bi测试接口查询车辆人车模型信息
+host: 'http://117.173.153.92:60004'
+api: '/privilege-strategy/getPrivilegeStrategy'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+
+data:
+  - - id: 1
+    - ps: "查询人车模型信息"
+    - "carPlateNum": ""
+    - "lotId": ""
+
+

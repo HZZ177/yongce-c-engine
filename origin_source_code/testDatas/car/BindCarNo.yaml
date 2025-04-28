@@ -1,0 +1,15 @@
+# 直接通过速停车接口绑定默认车牌
+host:
+api: 'wxpay_test_cd/service/front/userCenter/lpn/bind'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "post"
+data:
+  - - id: 1
+    - ps: "绑定默认车牌"
+    - request_data:
+        lpn:
+        type: "03"
+

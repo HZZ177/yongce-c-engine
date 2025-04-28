@@ -1,0 +1,17 @@
+# 登录easytest平台
+host:
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "app-id":
+  "secret-key":
+  "Accept": "application/json"
+method: "post"
+api: "login"
+data:
+  - - id: 1
+    - ps: "登录easytest平台"
+    - request_data:
+        username: "admin"
+        password: "admin"
+
+

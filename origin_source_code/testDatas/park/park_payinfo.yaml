@@ -1,0 +1,15 @@
+# 查询费用，测试专用
+api: 'nkc/fee-simulate/query-fee'
+headers:
+  authCode: "vehicle/inside/batchExport"
+data:
+  - - id: 1
+    - ps: '查询费用'
+    - cardNo: ""
+      freeMoney: ''
+      freeTime: ''
+      lotCode: ''
+      now: ""
+      platNum: ""
+
+

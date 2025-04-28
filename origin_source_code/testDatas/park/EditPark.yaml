@@ -1,0 +1,15 @@
+# 通过速停车管理端接口查询车场信息
+host:
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "app-id":
+  "secret-key":
+  "Accept": "application/json"
+api: "mc/manage/parking-lot/editForBackEnd"
+method: "post"
+data:
+  - - id: 1
+    - ps: "编辑车场信息"
+    - request_data:
+
+

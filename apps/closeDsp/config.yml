@@ -1,0 +1,17 @@
+device:
+  server_ip: "192.168.0.202"
+  server_port: 8080
+  device_type: "1"
+
+parking:
+  test_support_lot_ids: ["996000386", "996000387"]
+  prod_support_lot_ids: ["996000388", "996000389"]
+  default_lot_id: "996000386"
+
+api:
+  test_domain: "http://test-api.example.com"
+  prod_domain: "http://prod-api.example.com"
+  timeout: 30
+  car_come_domain:
+    test: "http://test-api.example.com/car/come"
+    prod: "http://prod-api.example.com/car/come" 

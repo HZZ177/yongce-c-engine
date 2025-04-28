@@ -1,0 +1,16 @@
+tags:
+ -  测试 test_ps_channel
+parameters:
+  - name: param
+    in: body
+    type: string
+    required: false
+    schema:
+      id: test_schema
+      properties:
+
+responses:
+  500:
+    description: 失败
+  200:
+    description: 成功

@@ -1,0 +1,11 @@
+# 通过biopen测试接口获取pika数据
+api: '/rocks/get'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+
+data:
+  - - id: 1
+    - ps: "查询pika数据"
+    - request_data:
+        key:
+

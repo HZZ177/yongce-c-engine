@@ -1,0 +1,14 @@
+# 测试数据库（stc_op_test）
+db:
+  - - host : "120.55.20.180"
+      port : 13308
+      user : "root"
+      password : "Keytop@123"
+      db : "advertisement_test"
+    - proExample: "成都广告库-阿里云"
+      proDb: "superpark"
+
+
+
+
+

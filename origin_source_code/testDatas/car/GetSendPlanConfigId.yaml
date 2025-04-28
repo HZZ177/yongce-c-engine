@@ -1,0 +1,20 @@
+# 直接通过连接测试数据库（superpark_wx_test）查询优惠卷配置id
+db:
+  - - host : "120.55.20.180"
+      port : 13308
+      user : "root"
+      password : "Keytop@123"
+      db : "superpark_wx_test"
+
+query:
+  - - id: 1
+    - ps: "查询套餐卷对应的config_id"
+    - carNo:
+      keyword:
+        - coupon_config_id
+      tableName: "mc_config_vip_package"
+
+
+
+
+

@@ -1,0 +1,16 @@
+# 直接通过速停车接口删除车辆信用付黑名单信息
+host:
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "app-id":
+  "secret-key":
+  "Accept": "application/json"
+method: "post"
+api: "mc/manage/postPaid/blackListUser/deleteBlackListUser"
+data:
+  - - id: 1
+    - ps: "删除信用付黑名单"
+    - request_data:
+        id:
+
+

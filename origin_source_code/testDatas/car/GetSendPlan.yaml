@@ -1,0 +1,15 @@
+# 通过速停车测试接口得到优惠券发送计划
+host:
+api: 'mc/coupon/getUserSendCouponPlan'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "get"
+data:
+  - - id: 1
+    - ps: "得到优惠券发送计划"
+    - request_data:
+
+
+

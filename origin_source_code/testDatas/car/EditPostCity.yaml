@@ -1,0 +1,14 @@
+# 直接通过速停车接口修改后付费城市信息
+host:
+api: 'mc/service/front/v2/postpaid/savePostpaidCities'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "post"
+data:
+  - - id: 1
+    - ps: "修改用户后付费绑定城市信息"
+    - request_data:
+
+

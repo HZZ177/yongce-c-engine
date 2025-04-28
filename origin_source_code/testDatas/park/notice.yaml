@@ -1,0 +1,22 @@
+# 支付订单,测试
+# api
+api: "nkc/fee-simulate/notice"
+# 请求头
+headers:
+data:
+  - - id: 1
+    - ps: "支付订单"
+    - "carPlateNum": ""
+      "cardNo": ""
+      "freeMoney": 0
+      "freeTime": 0
+      "lotCode": ""
+      "merchantOrderNo": ""
+      "orderNo": ""
+      "paidMoney": 0
+      "payChannel": ""
+      "payMethod": ""
+      "paySource": "2000"
+      "payTime": ""
+      "reqId": ""
+      "totalMoney": 0

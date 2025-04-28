@@ -1,0 +1,14 @@
+# 得到开通结果
+host:
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "Accept": "application/json"
+  "token":
+method: "get"
+api: "VIPPaymentRes"
+data:
+  - - id: 1
+    - ps: "得到开通结果"
+    - request_data:
+
+

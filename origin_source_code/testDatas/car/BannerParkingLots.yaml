@@ -1,0 +1,16 @@
+# 通过速停车测试接口查询banner车场列表信息
+host:
+api: 'mc/service/front/v2/city-lot/getParkingLotList2'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "post"
+data:
+  - - id: 1
+    - ps: "查询banner车场列表相关信息"
+    - request_data:
+        cityId:
+        enablePostPaid:
+        keyword:
+

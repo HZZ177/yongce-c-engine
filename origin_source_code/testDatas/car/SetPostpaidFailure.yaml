@@ -1,0 +1,15 @@
+# 通过速停车测试接口将后付费状态置为失效
+host:
+api: 'mc/service/front/v2/postpaid/invalidPostpaidStatus'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "get"
+data:
+  - - id: 1
+    - ps: "将后付费状态置为失效"
+    - request_data:
+
+
+

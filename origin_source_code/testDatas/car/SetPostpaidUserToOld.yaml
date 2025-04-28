@@ -1,0 +1,16 @@
+# 通过速停车测试接口将后付费用户置为旧用户（避免第一次无法进行体验版付费）
+host:
+api: 'mc/service/front/v2/postpaid/changePostpaidNewUserStatus'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "get"
+data:
+  - - id: 1
+    - ps: "将后付费用户置为旧用户"
+    - request_data:
+        userId:
+
+
+

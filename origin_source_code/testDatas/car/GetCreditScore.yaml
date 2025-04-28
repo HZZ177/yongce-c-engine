@@ -1,0 +1,15 @@
+# 通过速停车测试接口得到信用分
+host:
+api: 'mc/service/front/v2/creditScore/userInfo'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "get"
+data:
+  - - id: 1
+    - ps: "得到信用分"
+    - request_data:
+
+
+

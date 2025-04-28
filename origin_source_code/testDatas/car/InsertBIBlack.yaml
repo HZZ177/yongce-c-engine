@@ -1,0 +1,10 @@
+# 通过bi测试接口插入车辆人车模型黑名单信息
+api: 'plot-stats/privilegeRelease/blacklist/complainSerious'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+
+data:
+  - - id: 1
+    - ps: "插入人车模型黑名单"
+    - "carPlateNum": ""
+

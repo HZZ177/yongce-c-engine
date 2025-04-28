@@ -1,0 +1,36 @@
+退费
+进行退费操作
+---
+tags:
+  - 出入车 API
+parameters:
+  - name: tag
+    in: query
+    type: string
+    required: false
+    description: 默认test，test：测试环境，prod:生产环境
+  - name: carPlateNum
+    in: query
+    type: string
+    required: true
+    description: 车牌号
+  - name: beginDate
+    in: query
+    type: string
+    required: true
+    description: 开始日期，格式：YYYY-MM-DD
+  - name: endDate
+    in: query
+    type: string
+    required: true
+    description: 结束日期，格式：YYYY-MM-DD
+  - name: cookie
+    in: query
+    type: string
+    required: false
+    description: prod生产环境需要自己填一下
+responses:
+  500:
+    description: 操作失败
+  200:
+    description: 操作成功

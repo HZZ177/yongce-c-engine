@@ -1,0 +1,28 @@
+# 通过中台测试接口查询用户是否可以被后付费授权
+server: 'cn.keytop.stc.cp.postpaid-ms-service.'
+url: '/service/api/postpaid/presence/allowSaveCarPostpaidPresenceVerify'
+sid:
+appKey:
+app_id:
+method: "post"
+headers:
+    sid:
+    appId:
+    timestamp:
+    sign:
+    Content-Type: 'application/json'
+    Accept: 'application/json'
+    version: "1.0.0"
+data:
+  - - id: 1
+    - ps: "查询用户是否可以被后付费授权"
+    - request_data:
+        userId: "CREDIT_PAYMENT"
+        appId:
+        creditLimit: 20
+        openId:
+        ppUserId:
+        plateNumber:
+        lotId:
+        comeTime:
+        postPaidCategory: "CREDIT_PAYMENT"

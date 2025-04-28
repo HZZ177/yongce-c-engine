@@ -1,0 +1,10 @@
+# 统一平台登录接口
+api: unity/service/open/login/password
+headers:
+  Content-Type: "application/json;charset=UTF-8"
+  kt-lotcodes: ""
+data:
+  - - id: 1
+    - ps: ""
+    - loginName: 18190698890
+      password: 12345678a

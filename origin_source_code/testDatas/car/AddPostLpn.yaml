@@ -1,0 +1,15 @@
+# 通过速停车测试接口增加后付费车辆
+host:
+api: 'mc/service/front/v2/postpaid/addPostpaidCar'
+headers:
+  "Content-Type": "application/json;charset=UTF-8"
+  "accessToken": ""
+  "Accept": "application/json"
+method: "get"
+data:
+  - - id: 1
+    - ps: "增加后付费车辆"
+    - request_data:
+        lpn:
+
+
