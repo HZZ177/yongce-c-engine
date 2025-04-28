@@ -1,6 +1,7 @@
-from typing import List
-from .protocol import DeviceProtocol
-from .schema import DeviceOnOffRequest, DeviceOnOffResponse, BaseResponse
+from .config import Config
+from .protocol import DeviceProtocol, PaymentProtocol, BusinessProtocol
+from .schema import DeviceOnOffRequest, DeviceOnOffResponse, BaseResponse, PaymentResponse, PaymentRequest, \
+    RefundRequest, RefundResponse, CarInOutResponse, CarInOutRequest
 import random
 from datetime import datetime, timedelta
 import traceback
@@ -94,13 +95,17 @@ class CarService:
             if not request.server_ip:
                 return CarInOutResponse(data="服务器IP不能为空", resultCode=500)
 
-            # 获取设备协议
-            device_ip = "192.168.0.86"  # 默认设备IP
+            # 获取设备协议，使用本地回环地址
+            device_ip = "192.168.56.1"  # 使用本地 IP
             protocol = BusinessProtocol(
                 server_ip=request.server_ip or self.config.get_server_ip(),
                 server_port=self.config.get_server_port(),
                 client_ip=device_ip
             )
+            
+            # 建立连接
+            if not protocol.connect():
+                return CarInOutResponse(data=f"设备 {device_ip} 连接失败", resultCode=500)
 
             # 发送车辆入场信息
             if protocol.send_img(
@@ -115,11 +120,15 @@ class CarService:
                 i_open_type=0,  # 入场
                 i_cap_time=datetime.now()
             ):
+                # 关闭连接
+                protocol.close()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】入场成功",
                     resultCode=200
                 )
             else:
+                # 关闭连接
+                protocol.close()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】入场失败",
                     resultCode=500
@@ -137,13 +146,17 @@ class CarService:
             if not request.server_ip:
                 return CarInOutResponse(data="服务器IP不能为空", resultCode=500)
 
-            # 获取设备协议
-            device_ip = "192.168.0.86"  # 默认设备IP
+            # 获取设备协议，使用本地回环地址
+            device_ip = "192.168.56.1"  # 使用本地 IP
             protocol = BusinessProtocol(
                 server_ip=request.server_ip or self.config.get_server_ip(),
                 server_port=self.config.get_server_port(),
                 client_ip=device_ip
             )
+
+            # 建立连接
+            if not protocol.connect():
+                return CarInOutResponse(data=f"设备 {device_ip} 连接失败", resultCode=500)
 
             # 发送车辆出场信息
             if protocol.send_img(
@@ -158,11 +171,15 @@ class CarService:
                 i_open_type=1,  # 出场
                 i_cap_time=datetime.now()
             ):
+                # 关闭连接
+                protocol.close()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】出场成功",
                     resultCode=200
                 )
             else:
+                # 关闭连接
+                protocol.close()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】出场失败",
                     resultCode=500

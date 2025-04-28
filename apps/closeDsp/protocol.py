@@ -1,10 +1,10 @@
 from typing import Optional
-from pydantic import BaseModel, Field
 import socket
 import threading
 import struct
 import traceback
 from datetime import datetime
+from core.logger import logger
 
 
 class BaseProtocol:
@@ -24,8 +24,14 @@ class BaseProtocol:
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.sock.bind((self.client_ip, self.client_port))
+            # 使用 0.0.0.0 或 localhost 代替特定的客户端 IP
+            try:
+                self.sock.bind(('0.0.0.0', self.client_port))
+            except:
+                # 如果绑定失败，尝试不绑定直接连接
+                pass
             self.sock.settimeout(3000)
+            logger.info(f"尝试连接到 {self.server_ip}:{self.server_port}")
             self.sock.connect((self.server_ip, self.server_port))
             return True
         except Exception as e:
@@ -42,7 +48,8 @@ class BaseProtocol:
             logger.error(f"关闭连接失败: {traceback.format_exc()}")
             return False
 
-    def send_command(self, command_name: str, time_span: int, total_park: int, 
+    @staticmethod
+    def send_command(command_name: str, time_span: int, total_park: int,
                     park_serial: int, data: bytes, i_cap_time: Optional[datetime] = None) -> bytes:
         """发送命令"""
         try:
