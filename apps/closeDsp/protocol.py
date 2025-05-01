@@ -5,6 +5,10 @@ import struct
 import traceback
 from datetime import datetime
 from core.logger import logger
+import os
+import math
+import time
+import numpy as np
 
 
 class BaseProtocol:
@@ -17,7 +21,9 @@ class BaseProtocol:
         self.heart_lock = threading.Lock()
         self.recv_lock = threading.Lock()
         self.send_lock = threading.Lock()
+        self.write_lock = threading.Lock()
         self.RECV_LIST = []
+        self.img_data_list = None
 
     def connect(self):
         """建立TCP连接"""
@@ -48,39 +54,212 @@ class BaseProtocol:
             logger.error(f"关闭连接失败: {traceback.format_exc()}")
             return False
 
-    @staticmethod
-    def send_command(command_name: str, time_span: int, total_park: int,
-                    park_serial: int, data: bytes, i_cap_time: Optional[datetime] = None) -> bytes:
-        """发送命令"""
+    def send_command(self, command_name: str, time_span: int, total_park: int,
+                     park_serial: int, data: bytes, i_cap_time=None) -> bytes:
+        """
+        通用指令
+        :return:
+        """
         try:
-            # 命令头
-            command_header = bytes([0x7E])
-            
-            # 命令类型
-            command_type = bytes(command_name, encoding='utf-8')
-            
-            # 时间戳
-            if i_cap_time:
-                timestamp = int(i_cap_time.timestamp())
-            else:
-                timestamp = int(datetime.now().timestamp())
-            time_bytes = struct.pack('!I', timestamp)
-            
-            # 数据长度
+            # 发送指令
+            if time_span == 0 and i_cap_time is None:
+                i_cap_time = datetime.now()
+            if time_span == 0:
+                time_span = int(
+                    time.mktime(time.strptime(i_cap_time.strftime("%Y-%m-%d %H:%M:%S"), '%Y-%m-%d %H:%M:%S')))
             data_len = len(data)
-            len_bytes = struct.pack('!H', data_len)
-            
-            # 组装命令
-            command = command_header + command_type + time_bytes + len_bytes + data
-            
-            # 计算校验和
-            checksum = sum(command[1:]) & 0xFF
-            command += bytes([checksum])
-            
-            return command
-        except Exception as e:
-            logger.error(f"命令组装失败: {traceback.format_exc()}")
-            raise
+
+            # 时间戳字节
+            time_span_byte = struct.pack('!i', time_span)
+
+            # 指令类型字节
+            command_byte = bytes(command_name, encoding="utf8")
+
+            # 数据包总数
+            total_packs_byte = struct.pack('!h', total_park)
+
+            # 第几个数据包
+            park_serial_byte = struct.pack('!h', park_serial)
+
+            # 数据包信息
+            data_len_byte = struct.pack('!h', data_len)
+
+            # 消息体
+            data_bytes2 = time_span_byte + command_byte + total_packs_byte + park_serial_byte + data_len_byte
+
+            # 校验码
+            try:
+                i = 0
+                data_int = 0
+                data_int_bytes = data_bytes2 + data
+                while i < len(data_int_bytes):
+                    temp = np.int16([data_int_bytes[i]])
+                    if data_int > 0:
+                        data_int = np.int16(data_int + temp)
+                    else:
+                        data_int = np.int16(data_int + temp)
+                    i += 1
+            except Exception as msg:
+                raise RuntimeError(logger.error(traceback.format_exc()))
+            data_bytes2 = data_bytes2 + data
+
+            # 校验码字节
+            total_length_byte = struct.pack('!h', data_int[0])
+
+            total_bytes = data_bytes2 + total_length_byte
+            body_bytes = self.escape_send_data(total_bytes)
+
+            # 完整消息体
+            body_send_bytes = bytes([0xfb]) + body_bytes + bytes([0xfe])
+            return body_send_bytes
+        except Exception as msg:
+            raise Exception(logger.error(traceback.format_exc()))
+
+    def send_com_command(self, command_name: str, data: bytes) -> bytes:
+        return self.send_command(command_name, 0, 1, 0, data)
+
+    def escape_send_data(self, data_bytes: bytes) -> bytes:
+        """
+        发送转义
+        :param data_bytes: 需要发送的字节
+        :return: 转义后的字节
+        """
+        k = 0
+        new_bytes = bytes()
+        while k < len(data_bytes):
+            if data_bytes[k] == 0xfb:
+                new_bytes = new_bytes + bytes([0xff, 0xbb])
+            elif data_bytes[k] == 0xff:
+                new_bytes = new_bytes + bytes([0xff, 0xfc])
+            elif data_bytes[k] == 0xfe:
+                new_bytes = new_bytes + bytes([0xff, 0xee])
+            else:
+                new_bytes = new_bytes + bytes([data_bytes[k]])
+            k = k + 1
+        return new_bytes
+
+    def escape_receive_data(self, data_bytes: bytes) -> bytes:
+        """
+        接收转义
+        :param data_bytes: 接收的字节
+        :return: 转义后的字节
+        """
+        k = 0
+        new_bytes = bytes()
+        while k < len(data_bytes):
+            if data_bytes[k] == 0xff:
+                if k + 1 < len(data_bytes):
+                    if data_bytes[k + 1] == 0xbb:
+                        new_bytes = new_bytes + bytes([0xfb])
+                        k += 2
+                        continue
+                    elif data_bytes[k + 1] == 0xfc:
+                        new_bytes = new_bytes + bytes([0xff])
+                        k += 2
+                        continue
+                    elif data_bytes[k + 1] == 0xee:
+                        new_bytes = new_bytes + bytes([0xfe])
+                        k += 2
+                        continue
+            new_bytes = new_bytes + bytes([data_bytes[k]])
+            k += 1
+        return new_bytes
+
+    def _async_receive_data(self):
+        """
+        接收服务端消息线程
+        :return:
+        """
+        return_temp = None
+        while not return_temp:
+            try:
+                total_receve = bytes()
+                with self.recv_lock:
+                    if not self.sock._closed:
+                        receive_msg = self.sock.recv(65535)
+                        if len(receive_msg) == 0:
+                            time.sleep(0.1)
+                            continue
+                        if len(receive_msg) < 15:
+                            total_receve += receive_msg
+                            continue
+                        else:
+                            total_receve = receive_msg
+                        if total_receve[len(total_receve) - 1:len(total_receve)] == bytes([0xfe]):
+                            return_temp = self._receive_command(total_receve)
+                            total_receve = bytes(0)
+                        else:
+                            continue
+                    else:
+                        return
+            except OSError:
+                pass
+            except Exception as ex_receive_msg:
+                logger.error(traceback.format_exc())
+
+    def _receive_command(self, receive_bytes: bytes):
+        """
+        接收服务端信息处理
+        :param receive_bytes:
+        :return:
+        """
+        try:
+            msg_list = self._recive_data_to_tuple(receive_bytes)
+            for child in msg_list:
+                if child[1] != bytes([0xee]) and child[1] != bytes([0xbb]) and child[1] != bytes([0xfc]):
+                    try:
+                        command_name = child[1].decode('utf-8')
+                    except Exception as msg:
+                        logger.warning("%s child:%s" % (msg, str(child)))
+                        command_name = str(child[1])
+                    if command_name != 'F':
+                        logger.info('%s,收到%s指令' % (self.client_ip, command_name))
+                    if command_name == 'C':
+                        break
+                    elif command_name == 'D':
+                        break
+                    elif command_name == 'F':
+                        break
+                    elif command_name == 'V':
+                        version_no = 'test'
+                        with self.send_lock:
+                            self.sock.send(self.send_com_command('V', bytes(version_no, encoding="utf-8")))
+                        logger.info('%s,发送V指令' % self.client_ip)
+                    elif command_name == 'R':
+                        with self.send_lock:
+                            self.sock.send(self.send_com_command('R', bytes([0])))
+                        logger.info('%s,收到开闸指令,发送R指令应答' % self.client_ip)
+                    with self.write_lock:
+                        self.RECV_LIST.append(command_name)
+        except Exception as cmd_ex:
+            raise RuntimeError(logger.error('%s:%s' % (self.client_ip, traceback.format_exc())))
+
+    def _recive_data_to_tuple(self, recivedata: bytes):
+        """
+        接收数据解析
+        :param recivedata:
+        :return:
+        """
+        try:
+            types_list = recivedata.split(bytes([0xfb]))
+            tuple_list = []
+            for row in types_list:
+                if len(row) > 0:
+                    row_new = bytes([0xfb]) + row
+                    recevie_body = self.escape_receive_data(row_new)
+                    data_length = len(recevie_body) - 15
+                    data_type = bytes()
+                    if data_length > 0:
+                        unpark_tuple = struct.unpack('!i1s4h', recevie_body[1:14])
+                        data_type = recevie_body[15: len(recevie_body) - 1]
+                    else:
+                        unpark_tuple = struct.unpack('!i1s4h', recevie_body[1:14])
+                    tuple_to_list = list(unpark_tuple)
+                    tuple_to_list.append(data_type)
+                    tuple_list.append(tuple_to_list)
+            return tuple_list
+        except Exception as ex_msg:
+            raise RuntimeError(logger.error(traceback.format_exc()))
 
 class DeviceProtocol(BaseProtocol):
     def __init__(self, server_ip: str, server_port: int, client_ip: str, client_port: int = 0):
@@ -97,15 +276,15 @@ class DeviceProtocol(BaseProtocol):
             with self.send_lock:
                 # 发送设备类型
                 if str(device_type) == '10':
-                    self.sock.send(self.send_command('C', 0, 1, 0, bytes([0x0C, 0x04, 0x00, 0x31])))
+                    self.sock.send(self.send_com_command('C', bytes([0x0C, 0x04, 0x00, 0x31])))
                 else:
-                    self.sock.send(self.send_command('C', 0, 1, 0, bytes([0x01, 0x04, 0x00])))
+                    self.sock.send(self.send_com_command('C', bytes([0x01, 0x04, 0x00])))
                 
                 # 发送设备IP
-                self.sock.send(self.send_command('D', 0, 1, 0, bytes(self.client_ip, encoding="utf-8")))
+                self.sock.send(self.send_com_command('D', bytes(self.client_ip, encoding="utf-8")))
                 
                 # 发送状态
-                self.sock.send(self.send_command('F', 0, 1, 0, bytes([0x00])))
+                self.sock.send(self.send_com_command('F', bytes([0x00])))
 
             # 启动心跳和接收线程
             self.heart_thread = threading.Thread(target=self._watch_heart, daemon=True)
@@ -135,23 +314,14 @@ class DeviceProtocol(BaseProtocol):
         while True:
             try:
                 with self.heart_lock:
-                    if self.sock:
-                        self.sock.send(self.send_command('H', 0, 1, 0, bytes([0x00])))
-                threading.Event().wait(30)  # 每30秒发送一次心跳
+                    if self.sock and not self.sock._closed:
+                        with self.send_lock:
+                            self.sock.send(self.send_com_command('F', bytes([0x00])))
+                        time.sleep(5)
+                    else:
+                        return
             except Exception as e:
                 logger.error(f"心跳发送失败: {traceback.format_exc()}")
-                break
-
-    def _async_receive_data(self):
-        """接收数据线程"""
-        while True:
-            try:
-                if self.sock:
-                    data = self.sock.recv(1024)
-                    if data:
-                        self.RECV_LIST.append(data)
-            except Exception as e:
-                logger.error(f"数据接收失败: {traceback.format_exc()}")
                 break
 
 class BusinessProtocol(BaseProtocol):
@@ -183,49 +353,178 @@ class BusinessProtocol(BaseProtocol):
     def _send_imgs(self, i_serial: str, i_plate_no: str, i_car_style: int, i_is_etc: int, 
                   i_etc_no: str, i_recog_enable: int, i_color: int, i_data_type: int, 
                   i_open_type: int, i_cap_time: datetime):
-        """发送单条车辆信息"""
+        """
+        发送过车消息
+        :param i_serial:
+        :param i_plate_no:
+        :param i_car_style:
+        :param i_is_etc:
+        :param i_etc_no:
+        :param i_recog_enable:
+        :return:
+        """
         try:
-            # 进出口类型
-            first_byte = bytes([0x00])
-            if i_open_type == 0:  # 入场
-                inout_byte = bytes([0x05])
-            else:  # 出场
-                inout_byte = bytes([0x06])
+            img_list = self._send_command_img(i_serial, i_plate_no, i_car_style, i_is_etc, i_etc_no, i_recog_enable,
+                                             i_color, i_data_type, i_open_type, i_cap_time)
+            logger.info("发送J指令：" + str(img_list[0]))
+            self.img_data_list = img_list
+            with self.send_lock:
+                self.sock.send(img_list[0])
 
-            # 序列号
-            if len(i_serial) == 0:
-                i_serial = '000000'
-            serial_byte = struct.pack('!i', int(i_serial))
+            time.sleep(0.01)
+            if self.img_data_list is not None:
+                if len(self.img_data_list) > 0:
+                    total_len = len(self.img_data_list)
+                    ki = 1
+                    logger.info("%s,发送J指令第%s包" % (self.client_ip, ki))
+                    while ki < total_len:
+                        with self.send_lock:
+                            self.sock.send(self.img_data_list[ki])
+                            time.sleep(0.01)
+                            ki = ki + 1
+                    self.img_data_list = None
+                    logger.info("%s,发送J指令第%s包" % (self.client_ip, ki))
+
+            return True
+        except Exception as ex_img_msg:
+            raise Exception(logger.error(traceback.format_exc()))
+
+    def _send_command_img(self, i_serial: str, i_plate_no: str, i_car_style: int, i_is_etc: int, 
+                         i_etc_no: str, i_recog_enable: int, i_color: int, i_data_type: int, 
+                         i_open_type: int, i_cap_time: datetime):
+        """
+        J指令数据包封装
+        :param i_serial:
+        :param i_plate_no:
+        :param i_car_style:
+        :param i_is_etc:
+        :param i_etc_no:
+        :param i_recog_enable:
+        :return:
+        """
+        try:
+            img_list = []
+            data_bytes = bytes()
+            # 时间戳字节
+            if i_cap_time is None:
+                i_cap_time = datetime.now()
+            time_span = int(time.mktime(time.strptime(i_cap_time.strftime("%Y-%m-%d %H:%M:%S"), '%Y-%m-%d %H:%M:%S')))
+            # 指令类型
+            command_name = 'J'
+
+            # 第0个数据包
+            park_serial = 0
+
+            # 数据包总数 - 加载默认图片
+            # 查找项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            # 使用静态图片
+            static_dir = os.path.join(project_root, 'static')
+            img_path = os.path.join(static_dir, 'default_car.jpg')
+            
+            # 确保目录存在
+            if not os.path.exists(static_dir):
+                os.makedirs(static_dir)
+            
+            # 如果默认图片不存在，尝试从原始项目复制
+            if not os.path.exists(img_path):
+                try:
+                    original_img_path = os.path.join(project_root, 'origin_source_code', 'Files', '201604091316_02187_蓝皖J84846_Benz.jpg')
+                    # 如果原始图片也不存在，创建一个空图片
+                    if not os.path.exists(original_img_path):
+                        with open(img_path, 'wb') as f:
+                            # 创建一个最小的空JPEG图片
+                            f.write(bytes.fromhex('FFD8FFE000104A46494600010101006000600000FFDB004300080606070605080707070909080A0C140D0C0B0B0C1912130F141D1A1F1E1D1A1C1C20242E2720222C231C1C2837292C30313434341F27393D38323C2E333432FFDB0043010909090C0B0C180D0D1832211C213232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232FFC0001108000A000A03012200021101031101FFC4001F0000010501010101010100000000000000000102030405060708090A0BFFC400B5100002010303020403050504040000017D01020300041105122131410613516107227114328191A1082342B1C11552D1F02433627282090A161718191A25262728292A3435363738393A434445464748494A535455565758595A636465666768696A737475767778797A838485868788898A92939495969798999AA2A3A4A5A6A7A8A9AAB2B3B4B5B6B7B8B9BAC2C3C4C5C6C7C8C9CAD2D3D4D5D6D7D8D9DAE1E2E3E4E5E6E7E8E9EAF1F2F3F4F5F6F7F8F9FAFFC4001F0100030101010101010101010000000000000102030405060708090A0BFFC400B51100020102040403040705040400010277000102031104052131061241510761711322328108144291A1B1C109233352F0156272D10A162434E125F11718191A262728292A35363738393A434445464748494A535455565758595A636465666768696A737475767778797A82838485868788898A92939495969798999AA2A3A4A5A6A7A8A9AAB2B3B4B5B6B7B8B9BAC2C3C4C5C6C7C8C9CAD2D3D4D5D6D7D8D9DAE2E3E4E5E6E7E8E9EAF2F3F4F5F6F7F8F9FAFFDA000C03010002110311003F00FDFCA28A2803FFD9'))
+                    else:
+                        # 复制原始图片
+                        import shutil
+                        shutil.copy(original_img_path, img_path)
+                except Exception as e:
+                    logger.error(f"创建默认图片失败: {str(e)}")
+                    # 创建一个空文件作为备用
+                    with open(img_path, 'wb') as f:
+                        f.write(b'')
+                        
+            # 读取图片数据
+            with open(img_path, 'rb') as f:
+                img_bytes = f.read()
+                
+            # 如果图片为空，创建一些模拟数据
+            if not img_bytes:
+                img_bytes = bytes([0xFF] * 1024)
+                
+            total_packs = int(math.ceil((len(img_bytes) * 1.0) / 1024))
+
+            # 卡号标志 1个字节
+            is_etc = bytes([i_is_etc])
+            img_data = is_etc
+
+            # 卡号信息 28个字节
+            if i_is_etc == 1:
+                etc_no = bytes(i_etc_no, encoding="gbk")
+                img_data = img_data + etc_no + bytes(28 - len(etc_no))
+            else:
+                if len(i_serial) > 0:
+                    etc_no = bytes(12)
+                    img_data = img_data + etc_no
+                    img_data = img_data + struct.pack('!i', int(i_serial))
+                    img_data = img_data + etc_no
+                else:
+                    etc_no = bytes(28)
+                    img_data = img_data + etc_no
+
+            # 车牌颜色 1、"白",2、"黑","3、蓝",4、"黄",5、"绿" 1个字节
+            color = bytes([i_color])
+            img_data = img_data + color
 
             # 车牌号
-            plate_no_bytes = bytes(i_plate_no, encoding="utf8")
-
-            # 车型
-            car_style_byte = bytes([i_car_style])
-
-            # 是否ETC
-            isetc_byte = bytes([i_is_etc])
+            plate_bytes = bytes(i_plate_no, encoding="gbk")
+            img_data = img_data + plate_bytes
+            if len(plate_bytes) < 15:
+                plate_new_len = 15 - len(plate_bytes)
+                plate_new_bytes = bytes(plate_new_len)[0:plate_new_len]
+                img_data = img_data + plate_new_bytes
 
             # 识别度
-            recog_byte = struct.pack('!i', i_recog_enable)
+            img_data = img_data + struct.pack('!h', int(i_recog_enable))
 
-            # 车辆颜色
-            color_byte = bytes([i_color])
+            # 开闸及缓存
+            is_open = bytes([int(i_data_type + i_open_type)])
+            img_data = img_data + is_open
 
-            # 数据类型
-            data_type_byte = bytes([i_data_type])
+            # 投票标记
+            is_null = bytes([0])
+            img_data = img_data + is_null
 
-            # 组装数据
-            data = (first_byte + inout_byte + serial_byte + plate_no_bytes + car_style_byte + 
-                   isetc_byte + recog_byte + color_byte + data_type_byte)
+            # 车型
+            img_data = img_data + bytes([i_car_style])
 
-            # 发送命令
-            command = self.send_command('I', 0, 1, 0, data, i_cap_time)
-            with self.send_lock:
-                self.sock.send(command)
-        except Exception as e:
-            logger.error(f"发送车辆信息失败: {traceback.format_exc()}")
-            raise
+            # 车长
+            car_len = bytes([0])
+            img_data = img_data + car_len
+
+            # 车标信息
+            img_data = img_data + bytes(10)
+
+            # 总图像数据长度
+            img_len = struct.pack('!i', len(img_bytes))
+            img_data = img_data + img_len
+            first_data = self.send_command(command_name, time_span, total_packs, park_serial, img_data)
+            img_list.append(first_data)
+
+            k = 0
+            temp_data = bytes(1024)
+            while k < total_packs:
+                k += 1
+                temp_data = img_bytes[(k - 1) * len(temp_data): k * len(temp_data)]
+                temp_data_len = len(temp_data)
+                temp_data_bytes = self.send_command(command_name, time_span, total_packs, k, temp_data)
+                if temp_data_len < len(temp_data):
+                    break
+                img_list.append(temp_data_bytes)
+            return img_list
+        except Exception as msg:
+            raise RuntimeError(logger.error(traceback.format_exc()))
 
 class PaymentProtocol(BaseProtocol):
     def __init__(self, server_ip: str, server_port: int, client_ip: str, client_port: int = 0):
@@ -234,8 +533,10 @@ class PaymentProtocol(BaseProtocol):
     def pay_order(self, order_no: str, pay_money: int, car_no: str) -> bool:
         """支付订单"""
         try:
-            if not self.sock or self.sock._closed:
-                raise Exception(f"{self.client_ip}设备未连接")
+            if not self.connect():
+                return False
+                
+            logger.info(f"支付订单：订单号={order_no}, 金额={pay_money}, 车牌号={car_no}")
 
             # 组装支付数据
             data = (
@@ -249,30 +550,38 @@ class PaymentProtocol(BaseProtocol):
             command = self.send_command('P', 0, 1, 0, data)
             with self.send_lock:
                 self.sock.send(command)
+                
+            self.close()
             return True
         except Exception as e:
             logger.error(f"支付订单失败: {traceback.format_exc()}")
+            self.close()
             return False
 
     def refund_order(self, order_no: str, refund_money: int, car_no: str) -> bool:
         """退款订单"""
         try:
-            if not self.sock or self.sock._closed:
-                raise Exception(f"{self.client_ip}设备未连接")
+            if not self.connect():
+                return False
+                
+            logger.info(f"退款订单：订单号={order_no}, 金额={refund_money}, 车牌号={car_no}")
 
             # 组装退款数据
             data = (
-                bytes([0x00]) +  # 固定头
+                bytes([0x01]) +  # 固定头，退款用01
                 bytes(order_no, encoding="utf8") +  # 订单号
                 struct.pack('!i', refund_money) +  # 退款金额
                 bytes(car_no, encoding="utf8")  # 车牌号
             )
 
             # 发送退款命令
-            command = self.send_command('R', 0, 1, 0, data)
+            command = self.send_command('P', 0, 1, 0, data)
             with self.send_lock:
                 self.sock.send(command)
+                
+            self.close()
             return True
         except Exception as e:
             logger.error(f"退款订单失败: {traceback.format_exc()}")
+            self.close()
             return False
