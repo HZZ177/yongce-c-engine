@@ -8,7 +8,7 @@ class Config:
         with open(config_path, "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
 
-    def get_device_config(self) -> Dict[str, Any]:
+    def get_server_config(self) -> Dict[str, Any]:
         """获取设备相关配置"""
         return self.config.get("device", {})
 
@@ -22,15 +22,15 @@ class Config:
 
     def get_server_ip(self) -> str:
         """获取服务器IP"""
-        return self.get_device_config().get("server_ip", "192.168.0.202")
+        return self.get_server_config().get("server_ip", "192.168.0.202")
 
     def get_server_port(self) -> int:
         """获取服务器端口"""
-        return self.get_device_config().get("server_port", 8080)
+        return self.get_server_config().get("server_port", 5001)
 
     def get_device_type(self) -> str:
         """获取设备类型"""
-        return self.get_device_config().get("device_type", "1")
+        return self.get_server_config().get("device_type", "1")
 
     def get_test_support_lot_ids(self) -> List[str]:
         """获取测试环境支持的车场ID列表"""

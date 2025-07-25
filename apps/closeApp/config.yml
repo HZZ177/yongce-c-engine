@@ -1,7 +1,11 @@
-device:
+server:
   server_ip: "192.168.0.202"
   server_port: 5001
   device_type: "1"
+
+device:
+  in_device: "192.168.24.115"
+  out_device: "192.168.24.116"
 
 parking:
   test_support_lot_ids: ["996000386", "996000387"]

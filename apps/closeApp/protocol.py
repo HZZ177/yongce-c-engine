@@ -32,7 +32,7 @@ class BaseProtocol:
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             # 使用 0.0.0.0 或 localhost 代替特定的客户端 IP
             try:
-                self.sock.bind(('0.0.0.0', self.client_port))
+                self.sock.bind((self.client_ip, self.client_port))
             except:
                 # 如果绑定失败，尝试不绑定直接连接
                 pass
@@ -204,7 +204,7 @@ class BaseProtocol:
         :return:
         """
         try:
-            msg_list = self._recive_data_to_tuple(receive_bytes)
+            msg_list = self._receive_data_to_tuple(receive_bytes)
             for child in msg_list:
                 if child[1] != bytes([0xee]) and child[1] != bytes([0xbb]) and child[1] != bytes([0xfc]):
                     try:
@@ -234,7 +234,7 @@ class BaseProtocol:
         except Exception as cmd_ex:
             raise RuntimeError(logger.error('%s:%s' % (self.client_ip, traceback.format_exc())))
 
-    def _recive_data_to_tuple(self, recivedata: bytes):
+    def _receive_data_to_tuple(self, recivedata: bytes):
         """
         接收数据解析
         :param recivedata:
@@ -415,43 +415,20 @@ class BusinessProtocol(BaseProtocol):
             # 第0个数据包
             park_serial = 0
 
-            # 数据包总数 - 加载默认图片
-            # 查找项目根目录
+            # 数据包总数 - 使用与老项目相同的图像文件
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            # 使用静态图片
-            static_dir = os.path.join(project_root, 'static')
-            img_path = os.path.join(static_dir, 'default_car.jpg')
+            img_url = os.path.join(project_root, 'origin_source_code', 'Files')
+            img_name = os.path.join(img_url, '201604091316_02187_蓝皖J84846_Benz.jpg')
             
-            # 确保目录存在
-            if not os.path.exists(static_dir):
-                os.makedirs(static_dir)
-            
-            # 如果默认图片不存在，尝试从原始项目复制
-            if not os.path.exists(img_path):
-                try:
-                    original_img_path = os.path.join(project_root, 'origin_source_code', 'Files', '201604091316_02187_蓝皖J84846_Benz.jpg')
-                    # 如果原始图片也不存在，创建一个空图片
-                    if not os.path.exists(original_img_path):
-                        with open(img_path, 'wb') as f:
-                            # 创建一个最小的空JPEG图片
-                            f.write(bytes.fromhex('FFD8FFE000104A46494600010101006000600000FFDB004300080606070605080707070909080A0C140D0C0B0B0C1912130F141D1A1F1E1D1A1C1C20242E2720222C231C1C2837292C30313434341F27393D38323C2E333432FFDB0043010909090C0B0C180D0D1832211C213232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232FFC0001108000A000A03012200021101031101FFC4001F0000010501010101010100000000000000000102030405060708090A0BFFC400B5100002010303020403050504040000017D01020300041105122131410613516107227114328191A1082342B1C11552D1F02433627282090A161718191A25262728292A3435363738393A434445464748494A535455565758595A636465666768696A737475767778797A838485868788898A92939495969798999AA2A3A4A5A6A7A8A9AAB2B3B4B5B6B7B8B9BAC2C3C4C5C6C7C8C9CAD2D3D4D5D6D7D8D9DAE1E2E3E4E5E6E7E8E9EAF1F2F3F4F5F6F7F8F9FAFFC4001F0100030101010101010101010000000000000102030405060708090A0BFFC400B51100020102040403040705040400010277000102031104052131061241510761711322328108144291A1B1C109233352F0156272D10A162434E125F11718191A262728292A35363738393A434445464748494A535455565758595A636465666768696A737475767778797A82838485868788898A92939495969798999AA2A3A4A5A6A7A8A9AAB2B3B4B5B6B7B8B9BAC2C3C4C5C6C7C8C9CAD2D3D4D5D6D7D8D9DAE2E3E4E5E6E7E8E9EAF2F3F4F5F6F7F8F9FAFFDA000C03010002110311003F00FDFCA28A2803FFD9'))
-                    else:
-                        # 复制原始图片
-                        import shutil
-                        shutil.copy(original_img_path, img_path)
-                except Exception as e:
-                    logger.error(f"创建默认图片失败: {str(e)}")
-                    # 创建一个空文件作为备用
-                    with open(img_path, 'wb') as f:
-                        f.write(b'')
-                        
-            # 读取图片数据
-            with open(img_path, 'rb') as f:
-                img_bytes = f.read()
-                
-            # 如果图片为空，创建一些模拟数据
-            if not img_bytes:
-                img_bytes = bytes([0xFF] * 1024)
+            # 确保图像文件存在
+            if not os.path.exists(img_name):
+                # 如果原始图片不存在，创建一个空图片
+                logger.warning(f"图像文件 {img_name} 不存在，使用默认图像数据")
+                img_bytes = bytes([0xFF] * 1024 * 10)  # 创建一个较大的图像数据
+            else:
+                # 读取图片数据
+                with open(img_name, 'rb') as f:
+                    img_bytes = f.read()
                 
             total_packs = int(math.ceil((len(img_bytes) * 1.0) / 1024))
 

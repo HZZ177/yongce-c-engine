@@ -80,7 +80,7 @@
 **需要迁移到新项目 `apps/closeDsp/config.yml` 的配置项建议结构**:
 
 ```yaml
-# apps/closeDsp/config.yml
+# apps/closeApp/config.yml
 
 device: # 主要对应 dspClient2.py 实例化及直接运行所需的参数
   server_ip: "192.168.0.166"  # 示例：源自 test_setting.conf [advanced] ServerIP 或 3.0.py 中的硬编码
@@ -105,9 +105,9 @@ simulation_defaults: # dspClient2.py 方法参数的默认值，主要源自 tes
   # press_ground_recog_out: 300# 源自 [advanced] pressGround_recogOut (如果用到)
 
 # 以下配置主要源自老项目Nacos的 'api_conf' (被3.0.py使用，可能间接影响DSP调用)
-# 工程师需要判断这些配置在新项目中是由 apps/closeDsp/ 模块自身消耗，
+# 工程师需要判断这些配置在新项目中是由 apps/closeApp/ 模块自身消耗，
 # 还是由更高层级的调用者（如未来可能的API层）消耗。
-# 如果仅 apps/closeDsp/ 自身逻辑不使用，可以考虑不放在此 config.yml 或进行标记。
+# 如果仅 apps/closeApp/ 自身逻辑不使用，可以考虑不放在此 config.yml 或进行标记。
 external_services_config: # 用于模拟 3.0.py 中对外部API的调用逻辑（如果需要的话）
   support_lists:
     test_support_lotId: ["996000386", "592011611"] # 源自 api_config.get("test_support_lotId")

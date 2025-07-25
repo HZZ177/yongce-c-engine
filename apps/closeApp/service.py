@@ -95,20 +95,31 @@ class CarService:
             if not request.server_ip:
                 return CarInOutResponse(data="服务器IP不能为空", resultCode=500)
 
-            # 获取设备协议，使用本地回环地址
-            device_ip = "192.168.56.1"  # 使用本地 IP
-            protocol = BusinessProtocol(
+            # 获取设备协议，使用指定IP
+            device_ip = "192.168.24.115"  # 使用本地 IP
+            
+            # 先使用DeviceProtocol进行设备上线
+            device_protocol = DeviceProtocol(
                 server_ip=request.server_ip or self.config.get_server_ip(),
                 server_port=self.config.get_server_port(),
                 client_ip=device_ip
             )
             
-            # 建立连接
-            if not protocol.connect():
-                return CarInOutResponse(data=f"设备 {device_ip} 连接失败", resultCode=500)
-
+            # 进行设备上线
+            if not device_protocol.device_on():
+                return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
+            
             # 发送车辆入场信息
-            if protocol.send_img(
+            business_protocol = BusinessProtocol(
+                server_ip=request.server_ip or self.config.get_server_ip(),
+                server_port=self.config.get_server_port(),
+                client_ip=device_ip
+            )
+            
+            # 重用已建立的连接
+            business_protocol.sock = device_protocol.sock
+            
+            if business_protocol.send_img(
                 i_serial=str(request.i_serial or random.randint(0, 999999999)),
                 i_plate_no=request.car_no,
                 i_car_style=0,
@@ -121,14 +132,14 @@ class CarService:
                 i_cap_time=datetime.now()
             ):
                 # 关闭连接
-                protocol.close()
+                device_protocol.device_off()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】入场成功",
                     resultCode=200
                 )
             else:
                 # 关闭连接
-                protocol.close()
+                device_protocol.device_off()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】入场失败",
                     resultCode=500
@@ -146,20 +157,31 @@ class CarService:
             if not request.server_ip:
                 return CarInOutResponse(data="服务器IP不能为空", resultCode=500)
 
-            # 获取设备协议，使用本地回环地址
-            device_ip = "192.168.56.1"  # 使用本地 IP
-            protocol = BusinessProtocol(
+            # 获取设备协议，使用指定IP
+            device_ip = "192.168.24.116"  # 使用本地 IP
+            
+            # 先使用DeviceProtocol进行设备上线
+            device_protocol = DeviceProtocol(
                 server_ip=request.server_ip or self.config.get_server_ip(),
                 server_port=self.config.get_server_port(),
                 client_ip=device_ip
             )
-
-            # 建立连接
-            if not protocol.connect():
-                return CarInOutResponse(data=f"设备 {device_ip} 连接失败", resultCode=500)
-
+            
+            # 进行设备上线
+            if not device_protocol.device_on():
+                return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
+            
             # 发送车辆出场信息
-            if protocol.send_img(
+            business_protocol = BusinessProtocol(
+                server_ip=request.server_ip or self.config.get_server_ip(),
+                server_port=self.config.get_server_port(),
+                client_ip=device_ip
+            )
+            
+            # 重用已建立的连接
+            business_protocol.sock = device_protocol.sock
+
+            if business_protocol.send_img(
                 i_serial=str(request.i_serial or random.randint(0, 999999999)),
                 i_plate_no=request.car_no,
                 i_car_style=0,
@@ -172,14 +194,14 @@ class CarService:
                 i_cap_time=datetime.now()
             ):
                 # 关闭连接
-                protocol.close()
+                device_protocol.device_off()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】出场成功",
                     resultCode=200
                 )
             else:
                 # 关闭连接
-                protocol.close()
+                device_protocol.device_off()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】出场失败",
                     resultCode=500

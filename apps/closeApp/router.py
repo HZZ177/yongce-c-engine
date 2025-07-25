@@ -17,29 +17,29 @@ device_service = DeviceService()
 car_server = CarService(device_service)
 
 
-@close_dsp_router.post("/deviceOn", response_model=DeviceOnOffResponse)
+@close_dsp_router.post("/deviceOn", description="设备上线接口", summary="设备上线接口" ,response_model=DeviceOnOffResponse)
 async def device_on(request: DeviceOnOffRequest):
     """设备上线接口"""
     return await device_service.device_on(request)
 
-@close_dsp_router.post("/deviceOff", response_model=DeviceOnOffResponse)
+@close_dsp_router.post("/deviceOff", description="设备下线接口", summary="设备下线接口",response_model=DeviceOnOffResponse)
 async def device_off(request: DeviceOnOffRequest):
     """设备下线接口"""
     return await device_service.device_off(request)
 
-@close_dsp_router.post("/carIn", response_model=CarInOutResponse)
+@close_dsp_router.post("/carIn", description="车辆入场接口", summary="车辆入场接口",response_model=CarInOutResponse)
 async def car_in(request: CarInOutRequest):
     """车辆入场接口"""
     car_service = CarService(device_service)
     return await car_service.car_in(request)
 
-@close_dsp_router.post("/carOut", response_model=CarInOutResponse)
+@close_dsp_router.post("/carOut", description="车辆出场接口",summary="车辆出场接口", response_model=CarInOutResponse)
 async def car_out(request: CarInOutRequest):
     """车辆出场接口"""
     car_service = CarService(device_service)
     return await car_service.car_out(request)
 
-@close_dsp_router.post("/carOnPark")
+@close_dsp_router.post("/carOnPark", description="查询在场车辆接口", summary="查询在场车辆接口")
 async def get_on_park(request: OnParkSchema):
     """
     查询在场车辆

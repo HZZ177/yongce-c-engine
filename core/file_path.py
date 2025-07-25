@@ -19,7 +19,7 @@ log_path = os.path.abspath(os.path.join(project_path, 'logs'))      # 日志目�
 static_path = os.path.abspath(os.path.join(project_path, 'static'))     # 静态资源目录
 
 '''二级目录'''
-close_dsp_path = os.path.abspath(os.path.join(apps_path, 'closeDsp'))
+close_dsp_path = os.path.abspath(os.path.join(apps_path, 'closeApp'))
 
 
 if __name__ == '__main__':

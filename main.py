@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from apps.closeDsp.router import close_dsp_router
+from apps.closeApp.router import close_dsp_router
 import uvicorn
 
 app = FastAPI(title="Yongce-Pro-C端 引擎 API")
@@ -15,7 +15,7 @@ app.add_middleware(
 )
 
 # 注册路由
-app.include_router(close_dsp_router, prefix="/closeDsp", tags=["closeDsp"])
+app.include_router(close_dsp_router, prefix="/closeApp", tags=["封闭dsp"])
 
 if __name__ == "__main__":
     uvicorn.run(
