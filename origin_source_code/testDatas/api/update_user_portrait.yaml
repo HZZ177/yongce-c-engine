@@ -30,7 +30,7 @@ parameters:
         inCommonUseLot:
           type: string
           description: 用户频繁使用的车场（高频字段）
-          example: '{\"v1\":[{\"lot_cnt\":46,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"},{\"lot_cnt\":1,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v2\":[{\"cash_sum\":2461,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"},{\"cash_sum\":1200,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v3\":[{\"lot_cnt\":18,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"}],\"v4\":[{\"lot_cnt\":32,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"}]}'
+          example: '{\"v1\":[{\"lot_cnt\":46,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"},{\"lot_cnt\":1,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v2\":[{\"cash_sum\":2461,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"},{\"cash_sum\":1200,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v3\":[{\"lot_cnt\":18,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"}],\"v4\":[{\"lot_cnt\":32,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"}]}'
 responses:
   500:
     description: Not find userId

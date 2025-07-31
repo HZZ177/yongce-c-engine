@@ -24,7 +24,7 @@ from common.configLog import logger
 
 
 @util.catch_exception
-def on_Line(clientip, server_ip="192.168.0.202", over_msg='Z'):
+def on_Line(clientip, server_ip="192.168.0.183", over_msg='Z'):
     """
     设备上线
     parameter:

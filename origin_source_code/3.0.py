@@ -156,7 +156,7 @@ def device_On():
     设备上线api
     """
     data = json.loads(flask.request.data)
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     device_list = data.get("clientIps")
     if not device_list:
         res = {
@@ -186,7 +186,7 @@ def device_Off():
     设备下线api
     """
     data = json.loads(flask.request.data)
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     device_list = data.get("clientIps")
     if not device_list:
         res = {
@@ -217,9 +217,9 @@ def car_In():
     入车api
     """
     data = flask.request.args
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     car_no = data.get("car_no") or ""
-    lot_id = data.get("lot_id") or "996000386"
+    lot_id = data.get("lot_id") or "280025535"
     car_color = data.get("car_color") or 3
     recognition = data.get("recognition") or 1000
     i_serial = data.get("i_serial") or random.randint(0, 999999999)
@@ -293,9 +293,9 @@ def car_Out():
     出车api
     """
     data = flask.request.args
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     car_no = data.get("car_no") or ""
-    lot_id = data.get("lot_id") or "996000386"
+    lot_id = data.get("lot_id") or "280025535"
     car_color = data.get("car_color") or 3
     recognition = data.get("recognition") or 1000
     i_serial = data.get("i_serial") or random.randint(0, 999999999)
@@ -367,9 +367,9 @@ def Pay_Order():
     支付普通订单api
     """
     data = flask.request.args
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     car_no = data.get("car_no")
-    lot_id = data.get("lot_id") or "996000386"
+    lot_id = data.get("lot_id") or "280025535"
 
     if not server_ip or not car_no:
         res = {
@@ -603,7 +603,7 @@ def test_ps_channel():
     """
     data = json.loads(flask.request.data)
     print(data)
-    # server_ip = data.get("server_ip") or "192.168.0.202"
+    # server_ip = data.get("server_ip") or "192.168.0.183"
     logger.info(data)
     return jsonify(data)
 
@@ -615,6 +615,6 @@ if __name__ == "__main__":
     my_nacos_client.client.add_config_watcher(filepath.CONF.get("nacos", "api_data_id"),
                                               filepath.CONF.get("nacos", "api_group"), config_update)
     server.config['JSON_AS_ASCII'] = True
-    server.run(host="0.0.0.0", port=17896, debug=True, threaded=True)
-    # kttoken = login("996000386")
-    # print(get_onPark("996000386", "川AHJH888", kttoken))
+    server.run(host="192.168.0.86", port=17896, debug=True, threaded=True)
+    # kttoken = login("280025535")
+    # print(get_onPark("280025535", "川AHJH888", kttoken))

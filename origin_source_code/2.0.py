@@ -87,7 +87,7 @@ def get_onPark(lotId, carNo, ktToken, StartTime="", EndTime=""):
                 # "comeTimeEnd": "2021/08/02 23:59:59"
                 }
     headers = {"content-type": "application/json", "kt-token": ktToken, "kt-lotcodes": lotId}
-    if lotId == "996000386":
+    if lotId == "280025535":
         url = "https://s2-test.keytop.cn/nkc/carCome/findCarComePage"
     elif lotId == "9078":
         url = "http://ipark.keytop.cn/nkc/carCome/findCarComePage"
@@ -174,7 +174,7 @@ def device_On():
                   server_ip:
                       type: string
                       description: 服务器ip，默认192.168.0.202
-                      example: "192.168.0.202"
+                      example: "192.168.0.183"
 
         responses:
           500:
@@ -183,7 +183,7 @@ def device_On():
             description: 所有设备上线成功!!
     """
     data = json.loads(flask.request.data)
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     device_list = data.get("clientIps")
     if not device_list:
         res = {
@@ -228,7 +228,7 @@ def device_Off():
                   server_ip:
                       type: string
                       description: 服务器ip，默认192.168.0.202
-                      example: "192.168.0.202"
+                      example: "192.168.0.183"
 
         responses:
           500:
@@ -237,7 +237,7 @@ def device_Off():
             description: 所有设备下线成功!!
     """
     data = json.loads(flask.request.data)
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     device_list = data.get("clientIps")
     if not device_list:
         res = {
@@ -292,9 +292,9 @@ def car_In():
             description: 返回正确的入车状态
     """
     data = flask.request.args
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     car_no = data.get("car_no")
-    lot_id = data.get("lot_id") or "996000386"
+    lot_id = data.get("lot_id") or "280025535"
     if not server_ip or not car_no:
         res = {
             "data": "Not find car_no",
@@ -302,7 +302,7 @@ def car_In():
         }
     else:
 
-        if lot_id == "996000386" and server_ip == "192.168.0.202":
+        if lot_id == "280025535" and server_ip == "192.168.0.183":
             ktToken = login(lot_id)
             device_ip = "192.168.0.144"
         else:
@@ -375,9 +375,9 @@ def car_Out():
                 description: 返回正确的出车状态
         """
     data = flask.request.args
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     car_no = data.get("car_no")
-    lot_id = data.get("lot_id") or "996000386"
+    lot_id = data.get("lot_id") or "280025535"
 
     if not server_ip or not car_no:
         res = {
@@ -390,7 +390,7 @@ def car_Out():
             "resultCode": 500
         }
     else:
-        if lot_id == "996000386" and server_ip == "192.168.0.202":
+        if lot_id == "280025535" and server_ip == "192.168.0.183":
             ktToken = login(lot_id)
             device_ip = "192.168.0.145"
         else:
@@ -457,16 +457,16 @@ def Pay_Order():
             description: 返回正确的支付状态
     """
     data = flask.request.args
-    server_ip = data.get("server_ip") or "192.168.0.202"
+    server_ip = data.get("server_ip") or "192.168.0.183"
     car_no = data.get("car_no")
-    lot_id = data.get("lot_id") or "996000386"
+    lot_id = data.get("lot_id") or "280025535"
     if not server_ip or not car_no:
         res = {
             "data": "Not find car_no",
             "resultCode": 500
         }
     else:
-        if lot_id == "996000386" and server_ip == "192.168.0.202":
+        if lot_id == "280025535" and server_ip == "192.168.0.183":
             ktToken = login(lot_id)
             # 模拟缴费
             order_info = park.get_park_pay_info(ktToken, lot_id, car_no)
@@ -515,5 +515,5 @@ def Pay_Order():
 if __name__ == "__main__":
     server.config['JSON_AS_ASCII'] = True
     server.run(host="0.0.0.0", port='17896', debug=True)
-    # kttoken = login("996000386")
-    # print(get_onPark("996000386", "川AHJH888", kttoken))
+    # kttoken = login("280025535")
+    # print(get_onPark("280025535", "川AHJH888", kttoken))

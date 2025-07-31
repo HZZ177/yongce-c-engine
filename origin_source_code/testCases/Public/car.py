@@ -1875,10 +1875,10 @@ def process_user_portrait(key: str, env, **kwargs):
 
 if __name__ == '__main__':
     # car_No = filepath.CONF.get('car', 'special_carNo')
-    car_No = filepath.CONF.get('car', 'after_carNo')
+    # car_No = filepath.CONF.get('car', 'after_carNo')
     # user_id = filepath.CONF.get('car', 'special_user')
-    user_id = filepath.CONF.get('car', 'after_user')
-    lot_id = filepath.CONF.get("advanced", "lotId")
+    # user_id = filepath.CONF.get('car', 'after_user')
+    # lot_id = filepath.CONF.get("advanced", "lotId")
     # wx_id = filepath.CONF.get('car', 'wx_appId')
     # # print(get_user_info_by_mms("8430572e622d4319ad5d8ac0b2e0b376"))
     # add_OnPark("川AS8888", lot_id, "8430572e622d4319ad5d8ac0b2e0b376", wx_id)
@@ -1899,7 +1899,7 @@ if __name__ == '__main__':
     # print(get_vip_info("221473484736737586"))
     # check_send_plan("01", "204350188868616197")
     # print(get_postpaid_info("204350188868616197"))
-    # print(json.loads(get_wx_token()))
+    print(json.loads(get_wx_token()))
     # print(open_vip_v2("川AA8888", "204350188868616197", "05", "01"))
     # check_vip("204350188868616197")
     # modify_vip_lpn("204350188868616197", "川AHJH888")
@@ -1918,14 +1918,14 @@ if __name__ == '__main__':
     # set_postpaid_to_old("204350188868616197")
     # data = get_pika_data("UP:203905054163279872")
     # print(data)
-    # test_data = "{\"v1\":[{\"lot_cnt\":46,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"},{\"lot_cnt\":1,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v2\":[{\"cash_sum\":2461,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"},{\"cash_sum\":1200,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v3\":[{\"lot_cnt\":18,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"}],\"v4\":[{\"lot_cnt\":32,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"}]}"
+    # test_data = "{\"v1\":[{\"lot_cnt\":46,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"},{\"lot_cnt\":1,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v2\":[{\"cash_sum\":2461,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"},{\"cash_sum\":1200,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v3\":[{\"lot_cnt\":18,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"}],\"v4\":[{\"lot_cnt\":32,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"}]}"
     # print(type(test_data))
     # data['l'] = test_data
     # print(data['l'])
     # update_pika_data("UP:203905054163279872", data)
-    # data = '{\\"v1\\":[{\\"lot_cnt\\":46,\\"lot_id\\":\\"996000386\\",\\"lot_nature_code\\":\\"16\\"},{\\"lot_cnt\\":1,\\"lot_id\\":\\"6963\\",\\"lot_nature_code\\":\\"00\\"}],\\"v2\\":[{\\"cash_sum\\":2461,\\"lot_id\\":\\"996000386\\",\\"lot_nature_code\\":\\"16\\"},{\\"cash_sum\\":1400,\\"lot_id\\":\\"6963\\",\\"lot_nature_code\\":\\"00\\"}],\\"v3\\":[{\\"lot_cnt\\":18,\\"lot_id\\":\\"996000386\\",\\"lot_nature_code\\":\\"16\\"}],\\"v4\\":[{\\"lot_cnt\\":32,\\"lot_id\\":\\"996000386\\",\\"lot_nature_code\\":\\"16\\"}]}}'
+    # data = '{\\"v1\\":[{\\"lot_cnt\\":46,\\"lot_id\\":\\"280025535\\",\\"lot_nature_code\\":\\"16\\"},{\\"lot_cnt\\":1,\\"lot_id\\":\\"6963\\",\\"lot_nature_code\\":\\"00\\"}],\\"v2\\":[{\\"cash_sum\\":2461,\\"lot_id\\":\\"280025535\\",\\"lot_nature_code\\":\\"16\\"},{\\"cash_sum\\":1400,\\"lot_id\\":\\"6963\\",\\"lot_nature_code\\":\\"00\\"}],\\"v3\\":[{\\"lot_cnt\\":18,\\"lot_id\\":\\"280025535\\",\\"lot_nature_code\\":\\"16\\"}],\\"v4\\":[{\\"lot_cnt\\":32,\\"lot_id\\":\\"280025535\\",\\"lot_nature_code\\":\\"16\\"}]}}'
     # print(json.dumps(data.replace("\\", "")))
-    json = '{\"v1\":[{\"lot_cnt\":46,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"},{\"lot_cnt\":1,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v2\":[{\"cash_sum\":2461,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"},{\"cash_sum\":1200,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v3\":[{\"lot_cnt\":18,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"}],\"v4\":[{\"lot_cnt\":32,\"lot_id\":\"996000386\",\"lot_nature_code\":\"16\"}]}'
-    print(eval(json))
+    # json = '{\"v1\":[{\"lot_cnt\":46,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"},{\"lot_cnt\":1,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v2\":[{\"cash_sum\":2461,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"},{\"cash_sum\":1200,\"lot_id\":\"6963\",\"lot_nature_code\":\"00\"}],\"v3\":[{\"lot_cnt\":18,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"}],\"v4\":[{\"lot_cnt\":32,\"lot_id\":\"280025535\",\"lot_nature_code\":\"16\"}]}'
+    # print(eval(json))
 
     # "{\"v1\":[{\"lot_cnt\":7,\"lot_id\":\"769013704\",\"lot_nature_code\":\"00\"},{\"lot_cnt\":1,\"lot_id\":\"9078\",\"lot_nature_code\":\"16\"}],\"v2\":[{\"cash_sum\":14,\"lot_id\":\"769013704\",\"lot_nature_code\":\"00\"},{\"cash_sum\":1,\"lot_id\":\"9078\",\"lot_nature_code\":\"16\"}],\"v4\":[{\"lot_cnt\":7,\"lot_id\":\"769013704\",\"lot_nature_code\":\"00\"}]}"
