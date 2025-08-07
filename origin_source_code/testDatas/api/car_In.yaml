@@ -28,12 +28,12 @@ parameters:
     in: query
     type: string
     required: false
-    description: 车场ip,默认192.168.0.202,正式环境ip为192.168.0.114
+    description: 车场ip,默认192.168.0.183,正式环境ip为192.168.0.236
   - name: lot_id
     in: query
     type: string
     required: false
-    description: 车场id,默认996000386,正式环境9078
+    description: 车场id,默认280025535,正式环境280030477
 responses:
   500:
     description: Not find car_no
