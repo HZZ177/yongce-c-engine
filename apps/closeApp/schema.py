@@ -11,7 +11,7 @@ class BaseResponse(BaseModel):
     resultCode: int = Field(..., description="响应码")
 
 class DeviceOnOffRequest(BaseModel):
-    server_ip: str = Field(default="192.168.0.202", description="服务器IP")
+    server_ip: str = Field(default="192.168.0.183", description="服务器IP")
     device_list: List[str] = Field(..., description="设备IP列表")
     device_type: str = Field(default="1", description="设备类型")
 
@@ -19,16 +19,16 @@ class DeviceOnOffResponse(BaseResponse):
     pass
 
 class PaymentRequest(BaseModel):
-    server_ip: str = Field(default="192.168.0.202", description="服务器IP")
+    server_ip: str = Field(default="192.168.0.183", description="服务器IP")
     car_no: str = Field(..., description="车牌号")
-    lot_id: str = Field(default="996000386", description="车场ID")
+    lot_id: str = Field(default="280025535", description="车场ID")
     order_no: Optional[str] = Field(default=None, description="订单号")
     pay_money: Optional[int] = Field(default=None, description="支付金额")
 
 class RefundRequest(BaseModel):
-    server_ip: str = Field(default="192.168.0.202", description="服务器IP")
+    server_ip: str = Field(default="192.168.0.183", description="服务器IP")
     car_no: str = Field(..., description="车牌号")
-    lot_id: str = Field(default="996000386", description="车场ID")
+    lot_id: str = Field(default="280025535", description="车场ID")
     order_no: str = Field(..., description="订单号")
     refund_money: int = Field(..., description="退款金额")
 
@@ -39,9 +39,10 @@ class RefundResponse(BaseResponse):
     pass
 
 class CarInOutRequest(BaseModel):
-    server_ip: str = Field(default="192.168.0.202", description="服务器IP")
+    server_ip: str = Field(default="192.168.0.183", description="服务器IP")
     car_no: str = Field(..., description="车牌号")
-    lot_id: str = Field(default="996000386", description="车场ID")
+    lot_id: str = Field(default="280025535", description="车场ID")
     car_color: int = Field(default=3, description="车辆颜色")
     recognition: int = Field(default=1000, description="识别度")
     i_serial: Optional[int] = Field(default=None, description="序列号")
+    i_open_type: int = Field(default=0, description="出场方式(0:压地感 1:相机直接开闸放行)")

@@ -1,21 +1,39 @@
+# 服务器信息
 server:
-  server_ip: "192.168.0.202"
+  test_server_ips: "192.168.0.183"
   server_port: 5001
   device_type: "1"
 
+# 支持的服务器列表
+support_server_ips:
+  test: ["192.168.0.183"]
+  prod: ["192.168.0.236"]
+
+# 支持车场信息
+support_parking_ips:
+  test: ["280025535"]
+  prod: ["280030477"]
+
+# 模拟设备地址
 device:
-  in_device: "192.168.24.115"
-  out_device: "192.168.24.116"
+  test:
+    in_device: "192.168.24.115"
+    out_device: "192.168.24.116"
+  prod:
+    in_device: ""
+    out_device: ""
 
-parking:
-  test_support_lot_ids: ["996000386", "996000387"]
-  prod_support_lot_ids: ["996000388", "996000389"]
-  default_lot_id: "996000386"
+# 统一平台登录域名
+unity_login_domain:
+  test: 'https://ts.keytop.cn'
+  prod: 'http://park.keytop.cn'
 
-api:
-  test_domain: "http://test-api.example.com"
-  prod_domain: "http://prod-api.example.com"
-  timeout: 30
-  car_come_domain:
-    test: "http://test-api.example.com/car/come"
-    prod: "http://prod-api.example.com/car/come" 
+# 查询在场记录接口地址
+car_come_domain:
+  test: 'https://ipark-test.keytop.cn/nkc/carCome/findCarComePage'
+  prod: 'https://ipark.keytop.cn/nkc/carCome/findCarComePage'
+
+# 永策Pro域名
+yongce_pro_domain:
+  test: 'https://s2-test.keytop.cn/'
+  prod: 'http://ipark.keytop.cn/'

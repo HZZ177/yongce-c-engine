@@ -110,9 +110,9 @@ simulation_defaults: # dspClient2.py 方法参数的默认值，主要源自 tes
 # 如果仅 apps/closeApp/ 自身逻辑不使用，可以考虑不放在此 config.yml 或进行标记。
 external_services_config: # 用于模拟 3.0.py 中对外部API的调用逻辑（如果需要的话）
   support_lists:
-    test_support_lotId: ["996000386", "592011611"] # 源自 api_config.get("test_support_lotId")
+    test_support_lotId: ["280025535", "592011611"] # 源自 api_config.get("test_support_lotId")
     # prod_support_lotId: ["prod_lot_1"]            # 源自 api_config.get("prod_support_lotId")
-    test_support_ips: ["192.168.0.202", "192.168.0.166"] # 源自 api_config.get("test_support_ips")
+    test_support_ips: ["192.168.0.183", "192.168.0.166"] # 源自 api_config.get("test_support_ips")
     # prod_support_ips: ["prod_ip_1"]             # 源自 api_config.get("prod_support_ips")
   
   api_domains:

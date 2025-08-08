@@ -2,9 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from apps.closeApp.router import close_dsp_router
+from core.middleware import RequestLoggingMiddleware
 import uvicorn
 
 app = FastAPI(title="Yongce-Pro-C端 引擎 API")
+
+# 添加请求日志中间件
+app.add_middleware(RequestLoggingMiddleware)
 
 # 配置CORS
 app.add_middleware(

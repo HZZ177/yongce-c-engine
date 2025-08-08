@@ -33,11 +33,11 @@ class BaseProtocol:
             # 使用 0.0.0.0 或 localhost 代替特定的客户端 IP
             try:
                 self.sock.bind((self.client_ip, self.client_port))
-            except:
-                # 如果绑定失败，尝试不绑定直接连接
-                pass
+            except Exception as e:
+                logger.error(f"无法绑定{self.client_ip}:{self.client_port}: {str(e)}")
+                return False
             self.sock.settimeout(3000)
-            logger.info(f"尝试连接到 {self.server_ip}:{self.server_port}")
+            logger.debug(f"尝试连接到 {self.server_ip}:{self.server_port}")
             self.sock.connect((self.server_ip, self.server_port))
             return True
         except Exception as e:
@@ -213,7 +213,7 @@ class BaseProtocol:
                         logger.warning("%s child:%s" % (msg, str(child)))
                         command_name = str(child[1])
                     if command_name != 'F':
-                        logger.info('%s,收到%s指令' % (self.client_ip, command_name))
+                        logger.debug('%s,收到%s指令' % (self.client_ip, command_name))
                     if command_name == 'C':
                         break
                     elif command_name == 'D':
@@ -224,11 +224,11 @@ class BaseProtocol:
                         version_no = 'test'
                         with self.send_lock:
                             self.sock.send(self.send_com_command('V', bytes(version_no, encoding="utf-8")))
-                        logger.info('%s,发送V指令' % self.client_ip)
+                        logger.debug('%s,发送V指令' % self.client_ip)
                     elif command_name == 'R':
                         with self.send_lock:
                             self.sock.send(self.send_com_command('R', bytes([0])))
-                        logger.info('%s,收到开闸指令,发送R指令应答' % self.client_ip)
+                        logger.debug('%s,收到开闸指令,发送R指令应答' % self.client_ip)
                     with self.write_lock:
                         self.RECV_LIST.append(command_name)
         except Exception as cmd_ex:
@@ -292,7 +292,7 @@ class DeviceProtocol(BaseProtocol):
             self.heart_thread.start()
             self.recv_thread.start()
 
-            logger.info(f"设备 {self.client_ip} 上线成功")
+            logger.debug(f"设备 {self.client_ip} 上线成功")
             return True
         except Exception as e:
             logger.error(f"设备上线失败: {traceback.format_exc()}")
@@ -303,7 +303,7 @@ class DeviceProtocol(BaseProtocol):
         try:
             if self.sock:
                 self.close()
-            logger.info(f"设备 {self.client_ip} 下线成功")
+            logger.debug(f"设备 {self.client_ip} 下线成功")
             return True
         except Exception as e:
             logger.error(f"设备下线失败: {traceback.format_exc()}")
@@ -333,7 +333,7 @@ class BusinessProtocol(BaseProtocol):
                 i_open_type: int, i_cap_time: datetime) -> bool:
         """发送车辆进出场信息"""
         try:
-            logger.info(f'''模拟压地感请求参数：serial:{i_serial}, plate_no:{i_plate_no}, car_style:{i_car_style}, 
+            logger.debug(f'''模拟压地感请求参数：serial:{i_serial}, plate_no:{i_plate_no}, car_style:{i_car_style}, 
                         is_etc:{i_is_etc}, etc_no:{i_etc_no}, recog:{i_recog_enable}, color:{i_color}, 
                         data_type:{i_data_type}, open_type:{i_open_type}, i_cap_time:{i_cap_time}''')
             
@@ -342,7 +342,7 @@ class BusinessProtocol(BaseProtocol):
 
             plateno_list = i_plate_no.split(',')
             for plate_no in plateno_list:
-                logger.info(f"开始发送图片,推送车辆信息,{plate_no}")
+                logger.debug(f"开始发送图片,推送车辆信息,{plate_no}")
                 self._send_imgs(i_serial, plate_no, int(i_car_style), int(i_is_etc), i_etc_no,
                               int(i_recog_enable), i_color, i_data_type, i_open_type, i_cap_time)
             return True
@@ -366,7 +366,7 @@ class BusinessProtocol(BaseProtocol):
         try:
             img_list = self._send_command_img(i_serial, i_plate_no, i_car_style, i_is_etc, i_etc_no, i_recog_enable,
                                              i_color, i_data_type, i_open_type, i_cap_time)
-            logger.info("发送J指令：" + str(img_list[0]))
+            logger.debug("发送J指令：" + str(img_list[0]))
             self.img_data_list = img_list
             with self.send_lock:
                 self.sock.send(img_list[0])
@@ -376,14 +376,13 @@ class BusinessProtocol(BaseProtocol):
                 if len(self.img_data_list) > 0:
                     total_len = len(self.img_data_list)
                     ki = 1
-                    logger.info("%s,发送J指令第%s包" % (self.client_ip, ki))
+                    logger.debug("%s,发送J指令第%s包" % (self.client_ip, ki))
                     while ki < total_len:
                         with self.send_lock:
                             self.sock.send(self.img_data_list[ki])
-                            time.sleep(0.01)
                             ki = ki + 1
                     self.img_data_list = None
-                    logger.info("%s,发送J指令第%s包" % (self.client_ip, ki))
+                    logger.debug("%s,发送J指令第%s包" % (self.client_ip, ki))
 
             return True
         except Exception as ex_img_msg:
@@ -403,6 +402,7 @@ class BusinessProtocol(BaseProtocol):
         :return:
         """
         try:
+            logger.debug(f"开始封装J指令数据包")
             img_list = []
             data_bytes = bytes()
             # 时间戳字节
@@ -415,10 +415,10 @@ class BusinessProtocol(BaseProtocol):
             # 第0个数据包
             park_serial = 0
 
-            # 数据包总数 - 使用与老项目相同的图像文件
+            # 数据包总数
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            img_url = os.path.join(project_root, 'origin_source_code', 'Files')
-            img_name = os.path.join(img_url, '201604091316_02187_蓝皖J84846_Benz.jpg')
+            img_url = os.path.join(project_root, 'static')
+            img_name = os.path.join(img_url, 'default_car.jpg')
             
             # 确保图像文件存在
             if not os.path.exists(img_name):
@@ -513,7 +513,7 @@ class PaymentProtocol(BaseProtocol):
             if not self.connect():
                 return False
                 
-            logger.info(f"支付订单：订单号={order_no}, 金额={pay_money}, 车牌号={car_no}")
+            logger.debug(f"支付订单：订单号={order_no}, 金额={pay_money}, 车牌号={car_no}")
 
             # 组装支付数据
             data = (
@@ -541,7 +541,7 @@ class PaymentProtocol(BaseProtocol):
             if not self.connect():
                 return False
                 
-            logger.info(f"退款订单：订单号={order_no}, 金额={refund_money}, 车牌号={car_no}")
+            logger.debug(f"退款订单：订单号={order_no}, 金额={refund_money}, 车牌号={car_no}")
 
             # 组装退款数据
             data = (

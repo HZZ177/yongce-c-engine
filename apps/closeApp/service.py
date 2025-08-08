@@ -1,18 +1,103 @@
-from .config import Config
-from .protocol import DeviceProtocol, PaymentProtocol, BusinessProtocol
-from .schema import DeviceOnOffRequest, DeviceOnOffResponse, BaseResponse, PaymentResponse, PaymentRequest, \
+import asyncio
+import json
+import time
+import requests
+from apps.closeApp.config import Config
+from apps.closeApp.protocol import DeviceProtocol, PaymentProtocol, BusinessProtocol
+from apps.closeApp.schema import DeviceOnOffRequest, DeviceOnOffResponse, BaseResponse, PaymentResponse, PaymentRequest, \
     RefundRequest, RefundResponse, CarInOutResponse, CarInOutRequest
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 import traceback
-import logging
-import httpx
+from core.logger import logger
 from fastapi import HTTPException
 
-logger = logging.getLogger(__name__)
 
-class DeviceService:
+class BaseService:
     def __init__(self):
+        self.config = Config()
+
+    async def get_kt_token(self, lot_id):
+        """获取统一平台登录token"""
+        api_url = "/unity/service/open/app/login"
+        url = ""
+        if lot_id in self.config.get_test_support_lot_ids():
+            url = self.config.get_kt_unity_login_domain().get("test") + api_url
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            url = self.config.get_kt_unity_login_domain().get("prod") + api_url
+        # 统一平台登录
+        try:
+            headers = {"content-type": "application/json", "kt-lotcodes": lot_id}
+            data = {"code": "", "expireDay": 0, "loginWay": "", "mobileCode": "0592", "phone": "19182295006"}
+            res = requests.post(url=url, headers=headers, data=json.dumps(data))
+            if res.status_code != 200:
+                logger.error(f"统一平台登录失败: {res.text}")
+                raise HTTPException(status_code=500, detail=f"统一平台登录失败: {res.text}")
+            else:
+                kt_token = res.json()['data']['ktToken']
+                logger.info(f"统一平台登录成功，获取token: {kt_token}")
+                return kt_token
+        except Exception as e:
+            logger.error(f"统一平台登录失败: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"统一平台登录失败: {str(e)}")
+
+    async def get_on_park(
+            self,
+            lot_id: str,
+            car_no: str,
+            start_time: str = datetime.now().strftime("%Y-%m-%d 00:00:00"),
+            end_time: str = datetime.now().strftime("%Y-%m-%d 23:59:59")
+    ) -> dict:
+        """
+        查询在场车辆
+        :param lot_id: 车场ID
+        :param car_no: 车牌号
+        :param start_time: 开始时间
+        :param end_time: 结束时间
+        :return: 在场车辆信息
+        """
+        if not self.config.is_supported_lot_id(lot_id):
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+
+        kt_token = await self.get_kt_token(lot_id)
+
+        data = {
+            "lotCode": lot_id,
+            "downloadId": "",
+            "pageSize": 10,
+            "currentPage": 1,
+            "carNo": car_no,
+            "comeTimeStart": start_time,
+            "totalCount": "0,",
+            "comeTimeEnd": end_time
+        }
+
+        headers = {
+            "content-type": "application/json",
+            "kt-token": kt_token,
+            "kt-lotcodes": lot_id
+        }
+
+        if lot_id in self.config.get_test_support_lot_ids():
+            url = self.config.get_car_come_domain().get("test")
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            url = self.config.get_car_come_domain().get("prod")
+        else:
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+
+        try:
+            response = requests.post(url=url, headers=headers, json=data, timeout=5)
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail="查询在场接口出错！")
+            return response.json()
+        except requests.RequestException as e:
+            raise HTTPException(status_code=500, detail=f"查询在场车辆失败: {str(e)}")
+
+
+
+class DeviceService(BaseService):
+    def __init__(self):
+        super().__init__()
         self.devices = {}  # 存储设备实例
 
     async def device_on(self, request: DeviceOnOffRequest) -> DeviceOnOffResponse:
@@ -30,13 +115,14 @@ class DeviceService:
                     server_port=5001,  # 默认端口
                     client_ip=device_ip
                 )
-                
+
                 if protocol.device_on(request.device_type):
                     self.devices[device_ip] = protocol
                     success_devices.append(device_ip)
                 else:
                     failed_devices.append(device_ip)
             except Exception as e:
+                logger.error(f"设备上线失败: {device_ip}，错误信息: {str(e)}")
                 failed_devices.append(device_ip)
 
         if len(success_devices) == len(request.device_list):
@@ -46,7 +132,7 @@ class DeviceService:
             )
         else:
             return DeviceOnOffResponse(
-                data=f"部分设备上线失败。成功: {', '.join(success_devices)}; 失败: {', '.join(failed_devices)}",
+                data=f"部分设备上线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
                 resultCode=500
             )
 
@@ -79,67 +165,71 @@ class DeviceService:
             )
         else:
             return DeviceOnOffResponse(
-                data=f"部分设备下线失败。成功: {', '.join(success_devices)}; 失败: {', '.join(failed_devices)}",
+                data=f"部分设备下线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
                 resultCode=500
             )
 
-class CarService:
+
+class CarService(BaseService):
     def __init__(self, device_service: DeviceService):
+        super().__init__()
         self.device_service = device_service
-        self.config = Config()
-        self.car_in_out_config = {"fail_count": 5, "wait_time": 10}
+
 
     async def car_in(self, request: CarInOutRequest) -> CarInOutResponse:
         """车辆入场"""
         try:
             if not request.server_ip:
+                logger.error("服务器IP不能为空")
                 return CarInOutResponse(data="服务器IP不能为空", resultCode=500)
 
             # 获取设备协议，使用指定IP
-            device_ip = "192.168.24.115"  # 使用本地 IP
-            
+            if request.lot_id in self.config.get_test_support_lot_ids():
+                device_ip = self.config.get_test_device_ip().get("in_device")
+            elif request.lot_id in self.config.get_prod_support_lot_ids():
+                device_ip = self.config.get_prod_device_ip().get("in_device")
+            else:
+                logger.error(f"不支持的停车场: {request.lot_id}")
+                return CarInOutResponse(data="不支持的停车场", resultCode=500)
+
             # 先使用DeviceProtocol进行设备上线
             device_protocol = DeviceProtocol(
                 server_ip=request.server_ip or self.config.get_server_ip(),
                 server_port=self.config.get_server_port(),
                 client_ip=device_ip
             )
-            
+
             # 进行设备上线
             if not device_protocol.device_on():
                 return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
-            
+
             # 发送车辆入场信息
             business_protocol = BusinessProtocol(
                 server_ip=request.server_ip or self.config.get_server_ip(),
                 server_port=self.config.get_server_port(),
                 client_ip=device_ip
             )
-            
+
             # 重用已建立的连接
             business_protocol.sock = device_protocol.sock
-            
+
             if business_protocol.send_img(
-                i_serial=str(request.i_serial or random.randint(0, 999999999)),
-                i_plate_no=request.car_no,
-                i_car_style=0,
-                i_is_etc=0,
-                i_etc_no="",
-                i_recog_enable=request.recognition,
-                i_color=request.car_color,
-                i_data_type=0,
-                i_open_type=0,  # 入场
-                i_cap_time=datetime.now()
+                    i_serial=str(request.i_serial or random.randint(0, 999999999)),
+                    i_plate_no=request.car_no,
+                    i_car_style=0,
+                    i_is_etc=0,
+                    i_etc_no="",
+                    i_recog_enable=request.recognition,
+                    i_color=request.car_color,
+                    i_data_type=0,
+                    i_open_type=0,  # 入场
+                    i_cap_time=datetime.now()
             ):
-                # 关闭连接
-                device_protocol.device_off()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】入场成功",
                     resultCode=200
                 )
             else:
-                # 关闭连接
-                device_protocol.device_off()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】入场失败",
                     resultCode=500
@@ -150,6 +240,9 @@ class CarService:
                 data=f"【{request.car_no}】入场失败: {str(e)}",
                 resultCode=500
             )
+        finally:
+            # 关闭连接
+            device_protocol.device_off()
 
     async def car_out(self, request: CarInOutRequest) -> CarInOutResponse:
         """车辆出场"""
@@ -158,50 +251,52 @@ class CarService:
                 return CarInOutResponse(data="服务器IP不能为空", resultCode=500)
 
             # 获取设备协议，使用指定IP
-            device_ip = "192.168.24.116"  # 使用本地 IP
-            
+            if request.lot_id in self.config.get_test_support_lot_ids():
+                device_ip = self.config.get_test_device_ip().get("out_device")
+            elif request.lot_id in self.config.get_prod_support_lot_ids():
+                device_ip = self.config.get_prod_device_ip().get("out_device")
+            else:
+                logger.error(f"不支持的停车场: {request.lot_id}")
+                return CarInOutResponse(data="不支持的停车场", resultCode=500)
+
             # 先使用DeviceProtocol进行设备上线
             device_protocol = DeviceProtocol(
                 server_ip=request.server_ip or self.config.get_server_ip(),
                 server_port=self.config.get_server_port(),
                 client_ip=device_ip
             )
-            
+
             # 进行设备上线
             if not device_protocol.device_on():
                 return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
-            
+
             # 发送车辆出场信息
             business_protocol = BusinessProtocol(
                 server_ip=request.server_ip or self.config.get_server_ip(),
                 server_port=self.config.get_server_port(),
                 client_ip=device_ip
             )
-            
+
             # 重用已建立的连接
             business_protocol.sock = device_protocol.sock
 
             if business_protocol.send_img(
-                i_serial=str(request.i_serial or random.randint(0, 999999999)),
-                i_plate_no=request.car_no,
-                i_car_style=0,
-                i_is_etc=0,
-                i_etc_no="",
-                i_recog_enable=request.recognition,
-                i_color=request.car_color,
-                i_data_type=0,
-                i_open_type=1,  # 出场
-                i_cap_time=datetime.now()
+                    i_serial=str(request.i_serial or random.randint(0, 999999999)),
+                    i_plate_no=request.car_no,
+                    i_car_style=0,
+                    i_is_etc=0,
+                    i_etc_no="",
+                    i_recog_enable=request.recognition,
+                    i_color=request.car_color,
+                    i_data_type=0,
+                    i_open_type=request.i_open_type, # 出车方式(0:压地感 1:相机直接放行)
+                    i_cap_time=datetime.now()
             ):
-                # 关闭连接
-                device_protocol.device_off()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】出场成功",
                     resultCode=200
                 )
             else:
-                # 关闭连接
-                device_protocol.device_off()
                 return CarInOutResponse(
                     data=f"【{request.car_no}】出场失败",
                     resultCode=500
@@ -212,126 +307,139 @@ class CarService:
                 data=f"【{request.car_no}】出场失败: {str(e)}",
                 resultCode=500
             )
+        finally:
+            # 关闭连接
+            device_protocol.device_off()
 
-    async def get_on_park(self, lot_id: str, car_no: str, kt_token: str, start_time: str = "", end_time: str = "") -> dict:
+
+
+
+class PaymentService(BaseService):
+    def __init__(self):
+        super().__init__()
+
+    async def get_park_pay_info(self, kt_token, lot_id, car_no, out_time=0):
         """
-        查询在场车辆
-        :param lot_id: 车场ID
-        :param car_no: 车牌号
-        :param kt_token: 统一平台token
-        :param start_time: 开始时间
-        :param end_time: 结束时间
-        :return: 在场车辆信息
+        获取车场支付订单信息
+        :param kt_token:
+        :param lot_id:
+        :param car_no:
+        :param out_time:
+        :return:
         """
-        if not self.config.is_supported_lot_id(lot_id):
+        logger.info(f"开始查询车场支付订单信息: {lot_id} - {car_no}")
+        if lot_id in self.config.get_test_support_lot_ids():
+            base_url = self.config.get_yongce_pro_domain().get("test")
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            base_url = self.config.get_yongce_pro_domain().get("prod")
+        else:
             raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
 
-        now = datetime.now()
-        zero_today = now - timedelta(hours=now.hour, minutes=now.minute, seconds=now.second, microseconds=now.microsecond)
-        last_today = zero_today + timedelta(hours=23, minutes=59, seconds=59)
-        start_time = zero_today.strftime("%Y-%m-%d %H:%M:%S")
-        end_time = last_today.strftime("%Y-%m-%d %H:%M:%S")
-
+        url = base_url + "nkc/fee-simulate/query-fee"
+        headers = {
+            "content-type": "application/x-www-form-urlencoded",
+            "kt-lotcodes": lot_id,
+            "kt-token": kt_token
+        }
         data = {
             "lotCode": lot_id,
-            "downloadId": "",
-            "pageSize": 10,
-            "currentPage": 1,
-            "carNo": car_no,
-            "comeTimeStart": start_time,
-            "totalCount": "0,",
-            "comeTimeEnd": end_time
+            "platNum": car_no,
+            "now": out_time,
+            "freeMoney": "",
+            "freeTime": "",
+            "cardNo": ""
         }
 
-        headers = {
-            "content-type": "application/json",
-            "kt-token": kt_token,
-            "kt-lotcodes": lot_id
-        }
+        res = requests.post(url=url, headers=headers, data=data, timeout=5)
+        if res.status_code != 200:
+            logger.error(f"查询车场支付订单接口错误！错误返回为{res.text}")
+            raise HTTPException(status_code=500, detail=f"查询车场支付订单接口错误！错误返回为{res.text}")
+        else:
+            res_dic = res.json()
 
-        url = self.config.get_car_come_domain()
+        if res_dic["resultCode"] == 510 and "没有找到车辆信息" in res_dic["resultMsg"]:
+            logger.info("没有该车辆的支付订单信息！")
+            return False
+        elif res_dic["resultCode"] == 200:
+            order_no = res_dic["data"]["orderNo"]
+            pay_money = res_dic["data"]["payMoney"]
+            logger.info(f"查询车辆【{car_no}】支付订单信息成功，订单号为【{order_no}】, 支付金额为【{pay_money}】")
+            return {"orderNo": order_no, "payMoney": pay_money}
+        else:
+            raise Exception(f"查询车场支付订单接口错误！错误返回为{res_dic}")
 
-        try:
-            async with httpx.AsyncClient(timeout=self.config.get_api_timeout()) as client:
-                response = await client.post(url=url, headers=headers, json=data)
-                if response.status_code != 200:
-                    raise HTTPException(status_code=500, detail="查询在场接口出错！")
-                return response.json()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"查询在场车辆失败: {str(e)}")
 
-class PaymentService:
-    def __init__(self, device_service: DeviceService):
-        self.device_service = device_service
-
-    async def pay_order(self, request: PaymentRequest) -> PaymentResponse:
+    async def pay_order(self, lot_id, car_no, pay_time="") -> PaymentResponse:
         """支付订单"""
-        try:
-            if not request.server_ip:
-                return PaymentResponse(data="服务器IP不能为空", resultCode=500)
+        logger.info(f"开始支付车场订单")
+        if lot_id in self.config.get_test_support_lot_ids():
+            base_url = self.config.get_yongce_pro_domain().get("test")
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            base_url = self.config.get_yongce_pro_domain().get("prod")
+        else:
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
 
-            # 获取设备协议
-            device_ip = "192.168.0.86"  # 默认设备IP
-            protocol = PaymentProtocol(
-                server_ip=request.server_ip,
-                server_port=5001,
-                client_ip=device_ip
-            )
+        car_no = car_no
+        lot_id = lot_id
+        # 获取token
+        kt_token = await self.get_kt_token(lot_id)
+        # 查询订单信息
+        order_info = await self.get_park_pay_info(kt_token, lot_id, car_no)
+        if order_info:
+            url = base_url + "nkc/fee-simulate/notice"
+            headers = {
+                "content-type": "application/json",
+                "kt-lotcodes": lot_id,
+                "kt-token": kt_token
+            }
+            data = {
+                "lotCode": lot_id,
+                "orderNo": order_info["orderNo"],
+                "carPlateNum": car_no,
+                "paidMoney": order_info["payMoney"],
+                "payTime": pay_time,
 
-            # 发送支付信息
-            if protocol.pay_order(
-                order_no=request.order_no or f"ORDER_{random.randint(100000, 999999)}",
-                pay_money=request.pay_money or 1000,  # 默认支付金额
-                car_no=request.car_no
-            ):
-                return PaymentResponse(
-                    data=f"【{request.car_no}】支付成功",
-                    resultCode=200
-                )
+                "cardNo": "",
+                "freeMoney": 0,
+                "freeTime": 0,
+                "merchantOrderNo": "",
+                "payChannel": "",
+                "payMethod": "",
+                "paySource": "2000",
+                "reqId": "",
+                "totalMoney": 0
+            }
+
+            pay_res = requests.post(url=url, headers=headers, data=json.dumps(data), timeout=5)
+            if pay_res.status_code == 200:
+                res = {
+                    "data": f"【{car_no}】的订单【{order_info['orderNo']}】支付普通停车费【{order_info['payMoney']}】成功！",
+                    "resultCode": 200
+                }
             else:
-                return PaymentResponse(
-                    data=f"【{request.car_no}】支付失败",
-                    resultCode=500
-                )
-        except Exception as e:
-            logger.error(f"支付订单失败: {traceback.format_exc()}")
-            return PaymentResponse(
-                data=f"【{request.car_no}】支付失败: {str(e)}",
-                resultCode=500
-            )
+                res = {
+                    "data": f"【{car_no}】的订单【{order_info['orderNo']}】支付失败！",
+                    "resultCode": 500
+                }
+        else:
+            res = {
+                "data": f"未查询到【{car_no}】的普通支付订单！！",
+                "resultCode": 500
+            }
+        return PaymentResponse(**res)
 
-    async def refund_order(self, request: RefundRequest) -> RefundResponse:
+    async def refund_order(self, lot_id, car_no, pay_time="") -> RefundResponse:
         """退款订单"""
-        try:
-            if not request.server_ip:
-                return RefundResponse(data="服务器IP不能为空", resultCode=500)
+        pass
 
-            # 获取设备协议
-            device_ip = "192.168.0.86"  # 默认设备IP
-            protocol = PaymentProtocol(
-                server_ip=request.server_ip,
-                server_port=5001,
-                client_ip=device_ip
-            )
 
-            # 发送退款信息
-            if protocol.refund_order(
-                order_no=request.order_no,
-                refund_money=request.refund_money,
-                car_no=request.car_no
-            ):
-                return RefundResponse(
-                    data=f"【{request.car_no}】退款成功",
-                    resultCode=200
-                )
-            else:
-                return RefundResponse(
-                    data=f"【{request.car_no}】退款失败",
-                    resultCode=500
-                )
-        except Exception as e:
-            logger.error(f"退款订单失败: {traceback.format_exc()}")
-            return RefundResponse(
-                data=f"【{request.car_no}】退款失败: {str(e)}",
-                resultCode=500
-            )
+if __name__ == '__main__':
+    device_service = DeviceService()
+    car_service = CarService(device_service)
+    pay_service = PaymentService()
+
+    kt_token = asyncio.run(car_service.get_kt_token("280025535"))
+    res = asyncio.run(pay_service.get_park_pay_info(kt_token, "280025535", "川DHSY01"))
+    print(res)
+    res = asyncio.run(pay_service.pay_order("280025535", "川DHSY01"))
+    print(res)
