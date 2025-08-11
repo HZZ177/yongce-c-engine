@@ -95,12 +95,12 @@ async def car_in(
 @close_dsp_router.get("/carOut", description="车辆出场接口", summary="车辆出场接口", response_model=CarInOutResponse)
 async def car_out(
     car_no: str = Query(..., description="车牌号"),
+    i_open_type: int = Query(default=0, description="出场方式，不填默认压地感(0:压地感 1:相机直接开闸放行)"),
     server_ip: ServerIpEnum = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236"),
     lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     car_color: int = Query(default=3, description="车辆颜色(1:白 2:黑 3:蓝 4:黄 5:绿)"),
     recognition: int = Query(default=1000, description="识别度"),
-    i_serial: Optional[int] = Query(default=None, description="序列号"),
-    i_open_type: int = Query(default=0, description="出场方式，不填默认压地感(0:压地感 1:相机直接开闸放行)")
+    i_serial: Optional[int] = Query(default=None, description="序列号")
 ):
     """车辆出场接口"""
     # 构造请求对象
