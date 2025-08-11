@@ -58,6 +58,7 @@ async def device_off(
 @close_dsp_router.get("/carIn", description="车辆入场接口", summary="车辆入场接口", response_model=CarInOutResponse)
 async def car_in(
     car_no: str = Query(..., description="车牌号"),
+    i_open_type: int = Query(default=1, description="入场方式，不填默认相机直接放行(0:压地感 1:相机直接开闸放行)"),
     server_ip: ServerIpEnum = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236"),
     lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     car_color: int = Query(default=3, description="车辆颜色(1:白 2:黑 3:蓝 4:黄 5:绿)"),
@@ -72,7 +73,8 @@ async def car_in(
         lot_id=lot_id,
         car_color=car_color,
         recognition=recognition,
-        i_serial=i_serial
+        i_serial=i_serial,
+        i_open_type=i_open_type
     )
     # 入车
     res = await car_service.car_in(request)

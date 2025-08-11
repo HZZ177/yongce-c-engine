@@ -222,7 +222,7 @@ class CarService(BaseService):
                     i_recog_enable=request.recognition,
                     i_color=request.car_color,
                     i_data_type=0,
-                    i_open_type=0,  # 入场
+                    i_open_type=request.i_open_type,  # 入车默认1：相机直接放行
                     i_cap_time=datetime.now()
             ):
                 return CarInOutResponse(
