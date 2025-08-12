@@ -35,7 +35,7 @@ class BaseService:
                 raise HTTPException(status_code=500, detail=f"统一平台登录失败: {res.text}")
             else:
                 kt_token = res.json()['data']['ktToken']
-                logger.info(f"统一平台登录成功，获取token: {kt_token}")
+                logger.debug(f"统一平台登录成功，获取token: {kt_token}")
                 return kt_token
         except Exception as e:
             logger.error(f"统一平台登录失败: {traceback.format_exc()}")
@@ -359,7 +359,7 @@ class PaymentService(BaseService):
 
         if res_dic["resultCode"] == 510 and "没有找到车辆信息" in res_dic["resultMsg"]:
             logger.info("没有该车辆的支付订单信息！")
-            return False
+            return "没有该车辆的支付订单信息！"
         elif res_dic["resultCode"] == 200:
             order_no = res_dic["data"]["orderNo"]
             pay_money = res_dic["data"]["payMoney"]
@@ -385,7 +385,7 @@ class PaymentService(BaseService):
         kt_token = await self.get_kt_token(lot_id)
         # 查询订单信息
         order_info = await self.get_park_pay_info(kt_token, lot_id, car_no)
-        if order_info:
+        if order_info != "没有该车辆的支付订单信息！":
             url = base_url + "nkc/fee-simulate/notice"
             headers = {
                 "content-type": "application/json",
@@ -398,7 +398,6 @@ class PaymentService(BaseService):
                 "carPlateNum": car_no,
                 "paidMoney": order_info["payMoney"],
                 "payTime": pay_time,
-
                 "cardNo": "",
                 "freeMoney": 0,
                 "freeTime": 0,
