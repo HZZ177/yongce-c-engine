@@ -4,7 +4,10 @@ import type {
   DeviceOnOffRequest, 
   CarInOutRequest, 
   CarOnParkRequest, 
-  PayOrderRequest 
+  PayOrderRequest,
+  NodeStatusRequest,
+  NodeStatusResponse,
+  ChangeNodeStatusRequest
 } from '@/types'
 
 // 创建axios实例
@@ -62,6 +65,12 @@ export const deviceApi = {
   deviceOff: async (params: DeviceOnOffRequest): Promise<ApiResponse> => {
     const response = await api.get('/deviceOff', { params })
     return response.data
+  },
+
+  // 查询设备真实在线状态
+  deviceStatus: async (params: { device_ips: string, ttl_seconds?: number }): Promise<ApiResponse> => {
+    const response = await api.get('/deviceStatus', { params })
+    return response.data
   }
 }
 
@@ -96,6 +105,20 @@ export const paymentApi = {
   // 查询订单（获取支付信息）
   queryOrder: async (params: PayOrderRequest): Promise<ApiResponse> => {
     const response = await api.get('/payInfo', { params })
+    return response.data
+  }
+}
+
+// 节点状态API
+export const nodeApi = {
+  nodeStatus: async (params: NodeStatusRequest): Promise<NodeStatusResponse> => {
+    const response = await api.get('/nodeStatus', { params })
+    // 此接口保持原始格式返回
+    return response.data as unknown as NodeStatusResponse
+  },
+  
+  changeNodeStatus: async (params: ChangeNodeStatusRequest): Promise<ApiResponse> => {
+    const response = await api.get('/changeNodeStatus', { params })
     return response.data
   }
 }

@@ -4,8 +4,7 @@
     <header class="app-header">
       <div class="header-container">
         <div class="header-left">
-          <h1 class="app-title">永策C端引擎测试工具</h1>
-          <p class="app-subtitle">一站式停车场管理平台</p>
+          <h1 class="app-title">永策C端测试工具</h1>
         </div>
         
         <!-- 导航标签 -->

@@ -75,12 +75,12 @@ async def device_off(
 
 @close_dsp_router.get("/carIn", description="车辆入场接口", summary="车辆入场接口")
 async def car_in(
-    car_no: str = Query(..., description="车牌号"),
+    car_no: str = Query("", description="车牌号"),
     i_open_type: int = Query(default=1, description="入场方式，不填默认相机直接放行(0:压地感 1:相机直接开闸放行)"),
     server_ip: ServerIpEnum = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236"),
     lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     car_color: int = Query(default=3, description="车辆颜色(1:白 2:黑 3:蓝 4:黄 5:绿)"),
-    recognition: int = Query(default=1000, description="识别度"),
+    recognition: int = Query(default=900, description="识别度"),
     i_serial: Optional[int] = Query(default=None, description="序列号")
 ):
     """车辆入场接口"""
@@ -119,12 +119,12 @@ async def car_in(
 
 @close_dsp_router.get("/carOut", description="车辆出场接口", summary="车辆出场接口")
 async def car_out(
-    car_no: str = Query(..., description="车牌号"),
+    car_no: str = Query("", description="车牌号"),
     i_open_type: int = Query(default=0, description="出场方式，不填默认压地感(0:压地感 1:相机直接开闸放行)"),
     server_ip: ServerIpEnum = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236"),
     lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     car_color: int = Query(default=3, description="车辆颜色(1:白 2:黑 3:蓝 4:黄 5:绿)"),
-    recognition: int = Query(default=1000, description="识别度"),
+    recognition: int = Query(default=900, description="识别度"),
     i_serial: Optional[int] = Query(default=None, description="序列号")
 ):
     """车辆出场接口"""
@@ -229,3 +229,53 @@ async def get_config():
     except Exception as e:
         logger.error(f"获取配置信息失败: {e}")
         return error_response(message="获取配置信息失败")
+
+
+@close_dsp_router.get("/nodeStatus", description="查询通道状态接口", summary="查询通道状态接口")
+async def node_status(
+    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
+    cloud_kt_token: str = Query(..., description="云助手token，需要自己代理到云助手获取一下")
+):
+    """查询通道状态接口"""
+    try:
+        all_status_list = await device_service.get_all_node_status(lot_id, cloud_kt_token)
+        return success_response(data=convert_pydantic_model(all_status_list))
+    except Exception as e:
+        logger.error(f"查询通道状态失败: {e}")
+        return error_response(message=f"查询通道状态失败：{e}")
+
+
+@close_dsp_router.get("/changeNodeStatus", description="通道长抬状态变更接口", summary="通道长抬状态变更接口")
+async def change_node_status(
+        cloud_kt_token: str = Query(..., description="云助手token，需要自己代理到云助手获取一下"),
+        lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
+        node_ids: str = Query(..., description="通道ID列表"),
+        status: int = Query(..., description="通道状态 0:关闭长抬，1:打开长抬"),
+):
+    """通道长抬状态变更接口"""
+    try:
+        res = await device_service.change_node_status(cloud_kt_token, lot_id, node_ids, status)
+        return success_response(data=convert_pydantic_model(res))
+    except Exception as e:
+        logger.error(f"通道长抬状态变更失败: {e}")
+        return error_response(message="通道长抬状态变更失败")
+
+
+@close_dsp_router.get("/deviceStatus", description="查询设备真实在线状态接口", summary="查询设备真实在线状态接口")
+async def get_device_status(
+    device_ips: str = Query(..., description="设备IP列表，多个IP用英文逗号分隔"),
+    ttl_seconds: int = Query(default=12, description="心跳超时时间（秒），默认12秒")
+):
+    """查询设备真实在线状态接口"""
+    try:
+        # 将逗号分隔的字符串转换为列表
+        device_ip_list = [ip.strip() for ip in device_ips.split(",") if ip.strip()]
+        
+        if not device_ip_list:
+            return error_response(message="设备IP列表为空")
+        
+        result = await device_service.get_device_status(device_ip_list, ttl_seconds)
+        return success_response(data=result)
+    except Exception as e:
+        logger.error(f"查询设备状态失败: {e}")
+        return error_response(message=f"查询设备状态失败: {str(e)}")

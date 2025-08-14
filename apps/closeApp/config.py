@@ -64,6 +64,21 @@ class Config:
         """获取永策平台域名"""
         return self.config.get("yongce_pro_domain", {})
 
+    def get_test_cloud_channel_query_url(self) -> str:
+        """获取测试环境云助手通道查询接口"""
+        return self.config.get("cloud_channel_query_url", {}).get("test", "")
+
+    def get_prod_cloud_channel_query_url(self) -> str:
+        """获取正式环境云助手通道查询接口"""
+        return self.config.get("cloud_channel_query_url", {}).get("prod", "")
+
+    def get_test_cloud_channel_change_url(self) -> str:
+        """获取测试环境云助手通道变更接口"""
+        return self.config.get("cloud_channel_change_url", {}).get("test", "")
+
+    def get_prod_cloud_channel_change_url(self) -> str:
+        """获取正式环境云助手通道变更接口"""
+        return self.config.get("cloud_channel_change_url", {}).get("prod", "")
 
 if __name__ == "__main__":
     config = Config()

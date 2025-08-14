@@ -20,8 +20,8 @@ device:
     in_device: "192.168.24.115"
     out_device: "192.168.24.116"
   prod:
-    in_device: ""
-    out_device: ""
+    in_device: "192.168.24.117"
+    out_device: "192.168.24.118"
 
 # 统一平台登录域名
 unity_login_domain:
@@ -37,3 +37,13 @@ car_come_domain:
 yongce_pro_domain:
   test: 'https://s2-test.keytop.cn/'
   prod: 'http://ipark.keytop.cn/'
+
+# 云助手查询通道设备长抬情况接口
+cloud_channel_query_url:
+  test: "https://ts.keytop.cn/kos_visitor/service/nodeController/queryNodeList"
+  prod: ""
+
+# 云助手变更通道设备长抬情况接口
+cloud_channel_change_url:
+  test: "https://ts.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus"
+  prod: ""

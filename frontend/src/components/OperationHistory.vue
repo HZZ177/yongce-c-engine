@@ -17,7 +17,15 @@
       </div>
     </template>
     
-    <el-table :data="historyList" style="width: 100%" max-height="400">
+    <el-table :data="historyList" style="width: 100%" max-height="450" class="history-table">
+      <template #empty>
+        <div class="empty-table">
+          <el-icon class="empty-icon" size="60">
+            <Document />
+          </el-icon>
+          <p class="empty-text">暂无操作历史</p>
+        </div>
+      </template>
       <el-table-column prop="timestamp" label="时间" width="180" />
       <el-table-column prop="operation" label="操作" width="150" />
       <el-table-column prop="result" label="结果" width="100">
@@ -34,7 +42,13 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="message" label="消息" show-overflow-tooltip />
+      <el-table-column prop="message" label="消息" min-width="300">
+        <template #default="{ row }">
+          <div class="message-cell">
+            <span class="message-text">{{ row.message }}</span>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="100">
         <template #default="{ row }">
           <el-button 
@@ -51,16 +65,13 @@
         </template>
       </el-table-column>
     </el-table>
-    
-    <div v-if="historyList.length === 0" class="empty-history">
-      <el-empty description="暂无操作历史" />
-    </div>
   </el-card>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Document } from '@element-plus/icons-vue'
 import { useHistoryStore } from '@/stores/history'
 
 const historyStore = useHistoryStore()
@@ -98,6 +109,8 @@ const handleRemoveHistory = (id: string) => {
 <style scoped>
 .operation-history {
   margin-bottom: 1.5rem;
+  min-height: 500px;
+  max-height: 600px;
 }
 
 .card-header {
@@ -185,9 +198,46 @@ const handleRemoveHistory = (id: string) => {
   color: #991b1b;
 }
 
-.empty-history {
-  padding: 2.5rem 0;
+/* 表格最小高度 */
+.history-table {
+  min-height: 400px !important;
+}
+
+/* 空数据状态样式 */
+.empty-table {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 350px;
+  color: #909399;
+}
+
+.empty-icon {
+  margin-bottom: 16px;
+  color: #c0c4cc;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: #909399;
+  margin: 0;
+}
+
+/* 消息列样式 */
+.message-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px;
+}
+
+.message-text {
   text-align: center;
+  word-break: break-all;
+  line-height: 1.4;
+  white-space: pre-wrap;
 }
 
 /* 表格表头居中 */
@@ -198,4 +248,8 @@ const handleRemoveHistory = (id: string) => {
 .operation-history :deep(.el-table .cell) {
   text-align: center;
 }
-</style> 
+
+
+</style>
+
+ 

@@ -266,6 +266,7 @@ class DeviceProtocol(BaseProtocol):
         super().__init__(server_ip, server_port, client_ip, client_port)
         self.heart_thread = None
         self.recv_thread = None
+        self.last_heartbeat_at = None  # 记录最后一次心跳成功的时间戳
 
     def device_on(self, device_type: str = '1') -> bool:
         """设备上线"""
@@ -303,11 +304,16 @@ class DeviceProtocol(BaseProtocol):
         try:
             if self.sock:
                 self.close()
+            self.last_heartbeat_at = None  # 清空心跳时间戳
             logger.debug(f"设备 {self.client_ip} 下线成功")
             return True
         except Exception as e:
             logger.error(f"设备下线失败: {traceback.format_exc()}")
             return False
+
+    def is_connected(self) -> bool:
+        """检查设备是否仍然连接"""
+        return self.sock is not None and not self.sock._closed
 
     def _watch_heart(self):
         """心跳线程"""
@@ -317,11 +323,17 @@ class DeviceProtocol(BaseProtocol):
                     if self.sock and not self.sock._closed:
                         with self.send_lock:
                             self.sock.send(self.send_com_command('F', bytes([0x00])))
+                            # 心跳发送成功，更新时间戳
+                            self.last_heartbeat_at = time.time()
                         time.sleep(5)
                     else:
+                        # 连接已断开，清空心跳时间戳
+                        self.last_heartbeat_at = None
                         return
             except Exception as e:
                 logger.error(f"心跳发送失败: {traceback.format_exc()}")
+                # 心跳异常，清空时间戳
+                self.last_heartbeat_at = None
                 break
 
 class BusinessProtocol(BaseProtocol):

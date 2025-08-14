@@ -3,16 +3,12 @@
     <!-- 顶部配置栏 - 融合环境配置和设备管理 -->
     <div class="top-config-bar">
       <div class="config-section">
-        <!-- 第一行：标题和服务器IP -->
+        <!-- 第一行：标题 -->
         <div class="config-header">
           <div class="section-title">环境配置</div>
-          <div class="server-ip">
-            <span class="ip-label">服务器IP:</span>
-            <span class="ip-value">{{ envStore.serverIp }}</span>
-          </div>
         </div>
         
-        <!-- 第二行：环境按钮和车场选择 -->
+        <!-- 第二行：环境按钮 -->
         <div class="config-row">
           <div class="env-switch">
             <button 
@@ -39,8 +35,16 @@
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
               </div>
-              <span class="env-name">生产环境</span>
+              <span class="env-name">灰度环境</span>
             </button>
+          </div>
+        </div>
+        
+        <!-- 第三行：服务器IP和车场选择 -->
+        <div class="config-row">
+          <div class="server-ip">
+            <span class="ip-label">服务器IP:</span>
+            <span class="ip-value">{{ envStore.serverIp }}</span>
           </div>
           
           <div class="lot-select">
@@ -51,7 +55,7 @@
               style="width: 200px"
               :loading="envStore.configLoading"
               :disabled="envStore.configLoading || availableLots.length === 0"
-              size="small"
+              size="default"
             >
               <el-option
                 v-for="lot in availableLots"
@@ -68,32 +72,48 @@
       <div class="divider"></div>
       
       <div class="device-section">
-        <!-- 第一行：标题和批量按钮 -->
+        <!-- 第一行：标题和设置云助手token按钮 -->
         <div class="device-header">
           <div class="section-title">设备管理</div>
           <div class="device-actions">
-            <el-button type="primary" @click="handleBatchOn" :loading="deviceLoading" size="small">
-              <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-              批量上线
+            <el-button type="primary" size="small" @click="handleSetCloudToken">
+              设置云助手Token
             </el-button>
-            <el-button type="danger" @click="handleBatchOff" :loading="deviceLoading" size="small">
-              <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-              批量下线
+            <el-button 
+              type="success" 
+              size="small" 
+              @click="handleRefreshNodeStatus"
+              :loading="envStore.nodeStatusLoading"
+              :disabled="!envStore.cloudKtToken || !envStore.currentLotId"
+            >
+              刷新长抬状态
             </el-button>
+            <StandardTooltip
+              content="该功能依赖设备保持在线状态才能查到准确的状态或成功更改状态<br>否则会固定返回关闭<br>因此刷新时会自动上线所有设备"
+              :raw-content="true"
+            />
           </div>
         </div>
         
         <!-- 第二行：设备状态 -->
         <div class="device-status">
           <div v-for="device in deviceList" :key="device.ip" class="device-item">
-            <span class="device-ip">{{ device.ip }}</span>
-            <div class="status-indicator" :class="device.status ? 'online' : 'offline'">
-              <div class="status-dot"></div>
-              <span class="status-text">{{ device.status ? '在线' : '离线' }}</span>
+            <div class="device-type-status">
+              <span class="device-type">{{ device.type === 'in' ? '入口' : '出口' }}</span>
+              <div class="status-indicator" :class="device.status ? 'online' : 'offline'">
+                <div class="status-dot"></div>
+                <span class="status-text">{{ device.status ? '在线' : '离线' }}</span>
+              </div>
+            </div>
+            <div class="device-info">
+              <div class="device-name">
+                <StandardTooltip
+                  content="名称必须和车场配置的通道名称保持一致，需要通过名称查询/变更通道状态"
+                />
+                <span>{{ getChannelName(device) }}</span>
+                <el-button link type="primary" size="small" @click="handleEditChannelName(device)">编辑</el-button>
+              </div>
+              <span class="device-ip">{{ device.ip }}</span>
             </div>
             <el-button 
               :type="device.status ? 'danger' : 'primary'"
@@ -103,6 +123,36 @@
             >
               {{ device.status ? '下线' : '上线' }}
             </el-button>
+            <!-- 长抬状态开关 -->
+            <div class="long-lift-status">
+              <span class="status-label">通道长抬</span>
+              <el-tooltip
+                v-if="!device.status"
+                content="设备离线，需先连接设备"
+                placement="top"
+                effect="light"
+              >
+                <div class="switch-wrapper">
+                  <el-switch
+                    :model-value="getLongLiftStatus(device)"
+                    :active-value="'1'"
+                    :inactive-value="'0'"
+                    :disabled="!envStore.cloudKtToken || !envStore.currentLotId || deviceLoadingStates[device.ip] || !device.status"
+                    size="default"
+                    @change="handleLongLiftStatusChange(device, $event)"
+                  />
+                </div>
+              </el-tooltip>
+              <el-switch
+                v-else
+                :model-value="getLongLiftStatus(device)"
+                :active-value="'1'"
+                :inactive-value="'0'"
+                :disabled="!envStore.cloudKtToken || !envStore.currentLotId || deviceLoadingStates[device.ip]"
+                size="default"
+                @change="handleLongLiftStatusChange(device, $event)"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -129,25 +179,313 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useHistoryStore } from '@/stores/history'
-import { deviceApi } from '@/api/closeApp'
+import { deviceApi, nodeApi } from '@/api/closeApp'
 import VehicleManagement from '@/components/VehicleManagement.vue'
 import PaymentManagement from '@/components/PaymentManagement.vue'
 import OperationHistory from '@/components/OperationHistory.vue'
+import StandardTooltip from '@/components/StandardTooltip.vue'
 
 const envStore = useEnvironmentStore()
 const historyStore = useHistoryStore()
 const deviceLoading = ref(false)
+
+// 设备加载状态管理
+const deviceLoadingStates = ref<Record<string, boolean>>({})
 
 // 组件挂载时加载配置
 onMounted(async () => {
   if (!envStore.configLoaded) {
     await envStore.loadConfig()
   }
+  // 启动设备状态轮询
+  envStore.startDeviceStatusPolling()
 })
+
+// 组件卸载时停止轮询
+onUnmounted(() => {
+  envStore.stopDeviceStatusPolling()
+})
+
+// 通道名称相关
+const getChannelName = (device: any): string => {
+  const name = envStore.channelNameMap[device.ip as string]
+  return name || (device.type === 'in' ? '入口通道' : '出口通道')
+}
+
+const handleEditChannelName = async (device: any) => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入通道名称', '编辑通道名称', {
+      inputValue: getChannelName(device),
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
+    envStore.setChannelName(device.ip, value)
+    ElMessage.success('已更新通道名称')
+  } catch {
+    // 用户取消
+  }
+}
+
+// 获取长抬状态
+const getLongLiftStatus = (device: any): string => {
+  const channelName = getChannelName(device)
+  const node = envStore.nodeStatus.find(item => item.nodeName === channelName)
+  return node ? node.status : '0'
+}
+
+// 处理长抬状态变更
+const handleLongLiftStatusChange = async (device: any, newStatus: string) => {
+  if (!envStore.cloudKtToken || !envStore.currentLotId) {
+    ElMessage.warning('请先设置云助手Token并选择车场')
+    return
+  }
+  
+  const channelName = getChannelName(device)
+  const node = envStore.nodeStatus.find(item => item.nodeName === channelName)
+  
+  if (!node) {
+    ElMessage.warning('未找到对应的通道节点信息')
+    return
+  }
+  
+  deviceLoadingStates.value[device.ip] = true
+  const startTime = Date.now()
+  
+  try {
+    const result = await nodeApi.changeNodeStatus({
+      cloud_kt_token: envStore.cloudKtToken,
+      lot_id: envStore.currentLotId,
+      node_ids: node.nodeId.toString(),
+      status: parseInt(newStatus)
+    })
+    
+    if (result.resultCode === 200) {
+      ElMessage.success(`通道长抬状态${newStatus === '1' ? '开启' : '关闭'}成功`)
+      
+      // 刷新节点状态以获取最新数据
+      await envStore.fetchNodeStatus()
+      
+      // 记录操作历史
+      const duration = Date.now() - startTime
+      historyStore.addHistory({
+        operation: '变更通道长抬状态',
+        params: {
+          channelName: channelName,
+          nodeId: node.nodeId,
+          oldStatus: node.status,
+          newStatus: newStatus,
+          lotId: envStore.currentLotId
+        },
+        result: 'success',
+        message: typeof result.data === 'string' ? result.data : JSON.stringify(result.data),
+        duration
+      })
+    } else {
+      throw new Error(typeof result.data === 'string' ? result.data : '状态变更失败')
+    }
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.detail || error.message || '状态变更失败'
+    ElMessage.error(errorMsg)
+    
+    // 记录操作历史
+    const duration = Date.now() - startTime
+    historyStore.addHistory({
+      operation: '变更通道长抬状态',
+      params: {
+        channelName: channelName,
+        nodeId: node.nodeId,
+        oldStatus: node.status,
+        newStatus: newStatus,
+        lotId: envStore.currentLotId
+      },
+      result: 'error',
+      message: errorMsg,
+      duration
+    })
+  } finally {
+    deviceLoadingStates.value[device.ip] = false
+  }
+}
+
+// 设置云助手Token
+const handleSetCloudToken = async () => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入云助手Token（cloud_kt_token）', '设置云助手Token', {
+      inputValue: envStore.cloudKtToken,
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPlaceholder: '请输入cloud_kt_token'
+    })
+    envStore.setCloudKtToken(value)
+    ElMessage.success('云助手Token已保存')
+    // 立即刷新一次节点状态
+    await envStore.fetchNodeStatus()
+  } catch {
+    // 用户取消
+  }
+}
+
+// 刷新长抬状态
+const handleRefreshNodeStatus = async () => {
+  if (!envStore.cloudKtToken || !envStore.currentLotId) {
+    ElMessage.warning('请先设置云助手Token并选择车场')
+    return
+  }
+  
+  const startTime = Date.now()
+  
+  try {
+    // 确保设备状态轮询已启动
+    if (!envStore.deviceStatusPolling) {
+      envStore.startDeviceStatusPolling()
+    }
+    
+    // 第一步：先执行所有设备的上线接口
+    const devices = deviceList.value
+    if (devices.length === 0) {
+      ElMessage.warning('没有可操作的设备')
+      return
+    }
+    
+    const deviceIps = devices.map((d: any) => d.ip).join(',')
+    
+    // 调用设备上线接口
+    const deviceOnResult = await deviceApi.deviceOn({ 
+      device_list: deviceIps, 
+      server_ip: envStore.serverIp 
+    })
+    
+    if (deviceOnResult.resultCode !== 200) {
+      throw new Error(typeof deviceOnResult.data === 'string' ? deviceOnResult.data : '设备上线失败')
+    }
+    
+    // 不再强制更新设备状态为在线，而是等待轮询结果
+    ElMessage.info('设备上线操作已执行，正在同步设备状态...')
+    
+    // 记录设备上线操作历史
+    historyStore.addHistory({
+      operation: '批量设备上线',
+      params: { 
+        deviceIps: deviceIps, 
+        serverIp: envStore.serverIp,
+        operation: 'on'
+      },
+      result: 'success',
+      message: typeof deviceOnResult.data === 'string' ? deviceOnResult.data : JSON.stringify(deviceOnResult.data),
+      duration: 0
+    })
+    
+    // 等待一小段时间让设备状态同步
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // 第二步：设备上线成功后，再调用查询状态的接口
+    const result = await envStore.refreshNodeStatus()
+    
+    // 检查接口返回结果
+    if (result && result.success) {
+      ElMessage.success('长抬状态刷新成功')
+      
+      // 记录刷新长抬状态操作历史
+      const duration = Date.now() - startTime
+      let message = '接口调用成功'
+      if (result.data && Array.isArray(result.data)) {
+        // 直接转换为JSON字符串，显示原始内容
+        message = JSON.stringify(result.data)
+      } else if (result.data) {
+        message = typeof result.data === 'string' ? result.data : JSON.stringify(result.data)
+      }
+      
+      historyStore.addHistory({
+        operation: '刷新长抬状态',
+        params: { 
+          lotId: envStore.currentLotId, 
+          cloudKtToken: envStore.cloudKtToken,
+          deviceIps: deviceIps,
+          deviceOnResult: typeof deviceOnResult.data === 'string' ? deviceOnResult.data : JSON.stringify(deviceOnResult.data)
+        },
+        result: 'success',
+        message: message,
+        duration
+      })
+    } else {
+      // 接口调用失败
+      let errorMsg = '查询通道状态失败'
+      
+      // 从 result.data 中提取错误信息
+      if (result?.data) {
+        if (typeof result.data === 'string') {
+          errorMsg = result.data
+        } else if (result.data.message) {
+          errorMsg = result.data.message
+        } else if (result.data.error) {
+          errorMsg = result.data.error
+        } else {
+          errorMsg = JSON.stringify(result.data)
+        }
+      }
+      
+      ElMessage.error(errorMsg)
+      
+      // 记录失败的操作历史
+      const duration = Date.now() - startTime
+      historyStore.addHistory({
+        operation: '刷新长抬状态',
+        params: { 
+          lotId: envStore.currentLotId, 
+          cloudKtToken: envStore.cloudKtToken,
+          deviceIps: deviceIps,
+          deviceOnResult: typeof deviceOnResult.data === 'string' ? deviceOnResult.data : JSON.stringify(deviceOnResult.data)
+        },
+        result: 'error',
+        message: errorMsg,
+        duration
+      })
+    }
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.detail || error.message || '刷新失败'
+    ElMessage.error(errorMsg)
+    
+    // 记录操作历史
+    const duration = Date.now() - startTime
+    let message = errorMsg
+    if (error.response?.data) {
+      message = error.response.data.data || error.response.data.message || errorMsg
+    }
+    
+    // 判断是哪个操作失败，记录相应的操作历史
+    if (error.message && error.message.includes('设备上线失败')) {
+      // 设备上线失败
+      historyStore.addHistory({
+        operation: '批量设备上线',
+        params: { 
+          deviceIps: deviceList.value.map((d: any) => d.ip).join(','), 
+          serverIp: envStore.serverIp,
+          operation: 'on'
+        },
+        result: 'error',
+        message: errorMsg,
+        duration: 0
+      })
+    } else {
+      // 刷新长抬状态失败
+      historyStore.addHistory({
+        operation: '刷新长抬状态',
+        params: { 
+          lotId: envStore.currentLotId, 
+          cloudKtToken: envStore.cloudKtToken,
+          error: errorMsg
+        },
+        result: 'error',
+        message: message,
+        duration
+      })
+    }
+  }
+}
 
 // 环境相关
 const currentEnv = computed(() => envStore.currentEnv)
@@ -167,13 +505,13 @@ const deviceList = computed(() => {
       ip: currentLot.inDeviceIp,
       type: 'in' as const,
       status: envStore.deviceStatus.inDevice,
-      loading: false
+      loading: deviceLoadingStates.value[currentLot.inDeviceIp] || false
     },
     {
       ip: currentLot.outDeviceIp,
       type: 'out' as const,
       status: envStore.deviceStatus.outDevice,
-      loading: false
+      loading: deviceLoadingStates.value[currentLot.outDeviceIp] || false
     }
   ].filter(device => device.ip)
 })
@@ -196,7 +534,7 @@ const handleDeviceToggle = async (device: any) => {
     return
   }
   
-  device.loading = true
+  deviceLoadingStates.value[device.ip] = true
   try {
     const operation = device.status ? 'off' : 'on'
     const result = device.status 
@@ -204,14 +542,20 @@ const handleDeviceToggle = async (device: any) => {
       : await deviceApi.deviceOn({ device_list: device.ip, server_ip: envStore.serverIp })
     
     if (result.resultCode === 200) {
-      // 更新设备状态
-      if (device.type === 'in') {
-        envStore.updateDeviceStatus('inDevice', !device.status)
-      } else {
-        envStore.updateDeviceStatus('outDevice', !device.status)
+      // 不再直接更新设备状态，而是立即触发一次状态查询以获取真实状态
+      const currentLot = envStore.currentLotConfig
+      if (currentLot) {
+        const ips = []
+        if (currentLot.inDeviceIp) ips.push(currentLot.inDeviceIp)
+        if (currentLot.outDeviceIp) ips.push(currentLot.outDeviceIp)
+        
+        if (ips.length > 0) {
+          // 立即查询一次设备状态，加速状态收敛
+          await envStore.fetchDeviceStatus(ips)
+        }
       }
       
-      ElMessage.success(`设备${device.status ? '下线' : '上线'}成功`)
+      ElMessage.success(`设备${device.status ? '下线' : '上线'}操作已执行，正在同步状态...`)
       
       // 记录操作历史
       historyStore.addHistory({
@@ -237,11 +581,11 @@ const handleDeviceToggle = async (device: any) => {
       duration: 0
     })
   } finally {
-    device.loading = false
+    deviceLoadingStates.value[device.ip] = false
   }
 }
 
-// 批量操作
+// 批量操作（已隐藏按钮，但逻辑保留以备后续使用）
 const handleBatchOn = async () => {
   await handleBatchOperation('on', '上线')
 }
@@ -340,6 +684,8 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   display: flex;
   gap: 15px;
   align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .config-header {
@@ -347,7 +693,7 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   justify-content: center;
   align-items: center;
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   position: relative;
 }
 
@@ -356,10 +702,6 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
 }
 
 .server-ip {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-left: 120px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -368,6 +710,8 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   font-size: 12px;
+  min-width: 160px;
+  justify-content: center;
 }
 
 .ip-label {
@@ -378,6 +722,11 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
 .ip-value {
   color: #374151;
   font-weight: 600;
+}
+
+.lot-select {
+  display: flex;
+  justify-content: center;
 }
 
 .device-header {
@@ -396,13 +745,13 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  margin-left: 140px;
+  margin-left: 180px;
   display: flex;
   gap: 8px;
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: #374151;
   margin-bottom: 3px;
@@ -481,6 +830,23 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
 .device-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.help-icon {
+  color: #909399;
+  font-size: 12px;
+  cursor: help;
+  transition: color 0.2s ease;
+}
+
+.help-icon:hover {
+  color: #606266;
+}
+
+.device-name .help-icon {
+  font-size: 11px;
+  color: #6b7280;
 }
 
 .device-status {
@@ -493,25 +859,113 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
+  padding: 12px 8px;
   background: #ffffff;
   border-radius: 4px;
   border: 1px solid #e5e7eb;
   flex: 1;
   justify-content: center;
+  min-height: 60px;
+}
+
+.device-type-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 60px;
+}
+
+.device-type {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  min-width: 35px;
+  text-align: center;
+  padding: 4px 6px;
+  background: #f3f4f6;
+  border-radius: 3px;
+}
+
+.device-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 160px;
+  gap: 8px;
+}
+
+.device-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f8fafc;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  min-width: 140px;
+  justify-content: space-between;
+}
+
+.device-name span {
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.device-name .el-button {
+  padding: 2px 6px;
+  font-size: 11px;
+  height: auto;
+  line-height: 1.2;
+  border: none;
+  background: transparent;
+  color: #3b82f6;
+  transition: all 0.2s ease;
+}
+
+.device-name .el-button:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 3px;
 }
 
 .device-ip {
   font-size: 12px;
   color: #374151;
-  min-width: 120px;
+  min-width: 140px;
   text-align: center;
+  background: #ffffff;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid #e5e7eb;
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+.long-lift-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 80px;
+}
+
+.status-label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .status-indicator {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 4px;
+  min-width: 50px;
+  justify-content: center;
 }
 
 .status-dot {
@@ -529,8 +983,9 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
 }
 
 .status-text {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
+  text-align: center;
 }
 
 .status-indicator.online .status-text {
@@ -553,6 +1008,17 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   background-color: #e5e7eb;
   margin: 0 20px;
   align-self: stretch;
+}
+
+/* 开关包装器样式 */
+.switch-wrapper {
+  display: inline-block;
+}
+
+/* 离线状态下的开关样式 */
+.switch-wrapper .el-switch.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* 响应式设计 */

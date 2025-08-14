@@ -33,7 +33,7 @@ export interface VehicleInfo {
   carNo: string
   carColor: number
   recognition: number
-  iSerial?: number
+  iSerial?: string
   iOpenType: number
 }
 
@@ -77,7 +77,7 @@ export interface CarInOutRequest {
   lot_id: string
   car_color: number
   recognition: number
-  i_serial?: number
+  i_serial?: string
 }
 
 // 查询在场车辆请求
@@ -92,4 +92,35 @@ export interface CarOnParkRequest {
 export interface PayOrderRequest {
   car_no: string
   lot_id: string
+}
+
+// 节点长抬状态请求
+export interface NodeStatusRequest {
+  lot_id: string
+  cloud_kt_token: string
+}
+
+export interface NodeStatusItem {
+  nodeName: string
+  nodeType: number
+  nodeId: number
+  status: '0' | '1'
+  onTime?: string
+  onUser?: string
+  offTime?: string
+  offUser?: string
+}
+
+export interface NodeStatusResponse {
+  code: number
+  message: string
+  data: NodeStatusItem[]
+} 
+
+// 节点长抬状态变更请求
+export interface ChangeNodeStatusRequest {
+  cloud_kt_token: string
+  lot_id: string
+  node_ids: string
+  status: number
 } 

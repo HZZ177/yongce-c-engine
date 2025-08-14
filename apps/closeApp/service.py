@@ -2,6 +2,7 @@ import asyncio
 import json
 import time
 import requests
+from typing import List, Dict
 from apps.closeApp.config import Config
 from apps.closeApp.protocol import DeviceProtocol, PaymentProtocol, BusinessProtocol
 from apps.closeApp.schema import DeviceOnOffRequest, DeviceOnOffResponse, BaseResponse, PaymentResponse, PaymentRequest, \
@@ -169,6 +170,104 @@ class DeviceService(BaseService):
                 resultCode=500
             )
 
+    async def get_all_node_status(self, lot_id, cloud_kt_token):
+        """查询通道设备状态"""
+        if lot_id in self.config.get_test_support_lot_ids():
+            url = self.config.get_test_cloud_channel_query_url()
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            url = self.config.get_prod_cloud_channel_query_url()
+        else:
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+
+        headers = {
+            "content-type": "application/json",
+            "kt-token": cloud_kt_token
+        }
+        data = {
+            "nodeType": "-1"
+        }
+        try:
+            node_status = requests.post(url=url, headers=headers, json=data)
+            if node_status.json().get("code") != 2000:
+                raise Exception(f"查询通道设备状态失败！响应：{node_status.text}")
+            device_data = node_status.json().get("data")
+            return device_data
+        except requests.RequestException as e:
+            raise HTTPException(status_code=500, detail=f"查询通道设备状态失败: {str(e)}")
+
+    async def change_node_status(self, cloud_kt_token, lot_id, node_ids, status):
+        """修改通道状态"""
+        if lot_id in self.config.get_test_support_lot_ids():
+            url = self.config.get_test_cloud_channel_change_url()
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            url = self.config.get_prod_cloud_channel_change_url()
+        else:
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+
+        headers = {
+            "content-type": "application/json",
+            "kt-token": cloud_kt_token
+        }
+        data = {
+            "nodeIds": node_ids,
+            "nodeType": "-1",
+            "status": status
+        }
+        try:
+            change_res = requests.post(url=url, headers=headers, json=data)
+            res_json = change_res.json()
+            if res_json.get("code") != 2000:
+                raise Exception(f"修改通道状态失败，响应: {change_res.text}")
+            return res_json
+        except requests.RequestException as e:
+            raise HTTPException(status_code=500, detail=f"查询通道设备状态失败: {str(e)}")
+
+    async def get_device_status(self, device_ips: List[str], ttl_seconds: int = 12) -> List[Dict]:
+        """查询设备真实在线状态
+        
+        Args:
+            device_ips: 设备IP列表
+            ttl_seconds: 心跳超时时间（秒），默认12秒
+            
+        Returns:
+            设备状态列表，每个元素包含 {ip, online, updatedAt}
+        """
+        import time
+        current_time = time.time()
+        device_status_list = []
+        
+        for device_ip in device_ips:
+            device_ip = device_ip.strip()
+            if not device_ip:
+                continue
+                
+            # 检查设备是否在已连接列表中
+            if device_ip in self.devices:
+                protocol = self.devices[device_ip]
+                connected = protocol.is_connected()
+                
+                # 检查心跳是否在TTL范围内
+                if connected and protocol.last_heartbeat_at:
+                    time_since_heartbeat = current_time - protocol.last_heartbeat_at
+                    alive = time_since_heartbeat <= ttl_seconds
+                    updated_at = protocol.last_heartbeat_at
+                else:
+                    alive = False
+                    updated_at = 0
+            else:
+                # 设备未连接
+                connected = False
+                alive = False
+                updated_at = 0
+            
+            device_status_list.append({
+                'ip': device_ip,
+                'online': alive,
+                'updatedAt': updated_at
+            })
+            
+        return device_status_list
+
 
 class CarService(BaseService):
     def __init__(self, device_service: DeviceService):
@@ -191,6 +290,10 @@ class CarService(BaseService):
             else:
                 logger.error(f"不支持的停车场: {request.lot_id}")
                 return CarInOutResponse(data="不支持的停车场", resultCode=500)
+
+            if not device_ip:
+                logger.error("设备IP不能为空")
+                raise Exception("设备IP不能为空")
 
             # 先使用DeviceProtocol进行设备上线
             device_protocol = DeviceProtocol(
@@ -258,6 +361,9 @@ class CarService(BaseService):
             else:
                 logger.error(f"不支持的停车场: {request.lot_id}")
                 return CarInOutResponse(data="不支持的停车场", resultCode=500)
+            if not device_ip:
+                logger.error("设备IP不能为空")
+                raise Exception("设备IP不能为空")
 
             # 先使用DeviceProtocol进行设备上线
             device_protocol = DeviceProtocol(
