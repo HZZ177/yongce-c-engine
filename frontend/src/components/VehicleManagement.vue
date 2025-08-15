@@ -112,7 +112,7 @@
             size="default"
             class="action-button"
           >
-            查询在场
+            查询在场(当天)
           </el-button>
         </div>
       </div>

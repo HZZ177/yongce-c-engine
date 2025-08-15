@@ -115,7 +115,7 @@ export interface NodeStatusResponse {
   code: number
   message: string
   data: NodeStatusItem[]
-} 
+}
 
 // 节点长抬状态变更请求
 export interface ChangeNodeStatusRequest {
@@ -123,4 +123,31 @@ export interface ChangeNodeStatusRequest {
   lot_id: string
   node_ids: string
   status: number
+}
+
+// 通道二维码信息
+export interface ChannelQrCode {
+  nodeId: number
+  shortCode: string
+  nodeType: number
+  nodeName: string
+  nodeCodeUrl: string
+  nodeQrCode: string
+  linkUrl: string
+}
+
+// 获取通道二维码图片响应
+export interface GetChannelQrPicResponse {
+  success: boolean
+  code: string
+  msg: string
+  requestId: string | null
+  data: {
+    records: ChannelQrCode[]
+    pageSize: number
+    pageNumber: number
+    totalCount: number
+    totalPage: number
+    recordSize: number
+  }
 } 

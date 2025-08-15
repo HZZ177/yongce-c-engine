@@ -1,6 +1,6 @@
 import asyncio
+import hashlib
 import json
-import time
 import requests
 from typing import List, Dict
 from apps.closeApp.config import Config
@@ -41,6 +41,54 @@ class BaseService:
         except Exception as e:
             logger.error(f"统一平台登录失败: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"统一平台登录失败: {str(e)}")
+
+    async def yongce_pro_admin_login(self, lot_id):
+        """永策PRO平台后台登录"""
+        phone = "18202823092"
+        password = "as..101026"
+        img_code = "9078"
+        img_code_key = "096b514fxxxxxxxxxxxxx"
+        if lot_id in self.config.get_test_support_lot_ids():
+            top_group_id = self.config.get_yongce_pro_config().get("top_group_id").get("test")
+            base_url = self.config.get_yongce_pro_config().get("domain").get("test")
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            top_group_id = self.config.get_yongce_pro_config().get("top_group_id").get("prod")
+            base_url = self.config.get_yongce_pro_config().get("domain").get("prod")
+        else:
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+
+        url = base_url + "/user-center/api/login/login"
+        h = hashlib.md5()
+        h.update(password.encode(encoding='utf-8'))
+
+        headers = {
+            "Content-Type": "application/json;charset=UTF-8",
+            "Accept": "application/json",
+            "topGroupId": top_group_id,
+        }
+
+        login_data = {
+            "phone": phone,
+            "password": h.hexdigest(),
+            "loginMethod": 1,
+            "topGroupId": top_group_id,
+            "code": img_code,
+            "codeKey": img_code_key
+        }
+        response = requests.post(url=url, headers=headers, json=login_data)
+        result_dic = response.json()
+        if result_dic["resultCode"] == 200:
+            logger.info("永策PRO平台登录成功！")
+            return result_dic
+        else:
+            raise Exception(f"永策PRO平台登录失败！错误为【{result_dic}】!")
+
+    async def get_yongce_pro_admin_token(self, lot_id):
+        """获取永策PRO平台后台登录token"""
+        login_res = await self.yongce_pro_admin_login(lot_id)
+        token = login_res.get("data").get("token")
+        return token
+
 
     async def get_on_park(
             self,
@@ -93,6 +141,38 @@ class BaseService:
             return response.json()
         except requests.RequestException as e:
             raise HTTPException(status_code=500, detail=f"查询在场车辆失败: {str(e)}")
+
+    async def get_channel_qr_pic(self, lot_id):
+        """获取车场通道二维码图片"""
+        if not self.config.is_supported_lot_id(lot_id):
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+
+        yongce_pro_token = await self.get_yongce_pro_admin_token(lot_id)
+        headers = {
+            "content-type": "application/json",
+            "Token": yongce_pro_token
+        }
+        data = {
+            "lotCode": lot_id,
+            "pageNumber": 1,
+            "pageSize": 10
+        }
+
+        if lot_id in self.config.get_test_support_lot_ids():
+            base_url = self.config.get_yongce_pro_config().get("domain").get("test")
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            base_url = self.config.get_yongce_pro_config().get("domain").get("prod")
+        else:
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+        url = base_url + "/admin-vehicle-owner/lotSpace/nodeCode/list"
+        try:
+            response = requests.post(url=url, headers=headers, json=data, timeout=5)
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail=f"获取车场通道二维码图片失败！返回信息{response.text}")
+            return response.json()
+        except requests.RequestException as e:
+            raise HTTPException(status_code=500, detail=f"获取车场通道二维码图片失败: {str(e)}")
+
 
 
 
@@ -539,12 +619,11 @@ class PaymentService(BaseService):
 
 
 if __name__ == '__main__':
+    base_service = BaseService()
     device_service = DeviceService()
     car_service = CarService(device_service)
     pay_service = PaymentService()
 
-    kt_token = asyncio.run(car_service.get_kt_token("280025535"))
-    res = asyncio.run(pay_service.get_park_pay_info(kt_token, "280025535", "川DHSY01"))
-    print(res)
-    res = asyncio.run(pay_service.pay_order("280025535", "川DHSY01"))
+    res = asyncio.run(base_service.get_channel_qr_pic("280025535"))
+    # res = asyncio.run(base_service.yongce_pro_admin_login("280025535"))
     print(res)

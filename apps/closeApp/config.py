@@ -80,6 +80,11 @@ class Config:
         """获取正式环境云助手通道变更接口"""
         return self.config.get("cloud_channel_change_url", {}).get("prod", "")
 
+    def get_yongce_pro_config(self) -> dict:
+        """获取永策后台测试环境相关配置"""
+        return self.config.get("yongce_pro", {})
+
+
 if __name__ == "__main__":
     config = Config()
     print(config.is_supported_lot_id("280030477"))

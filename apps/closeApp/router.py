@@ -4,12 +4,12 @@ import asyncio
 from fastapi import APIRouter, HTTPException, Query
 
 from core.logger import logger
-from .enum import LotIdEnum, ServerIpEnum
+from .custom_enum import LotIdEnum, ServerIpEnum
 from .schema import (
     DeviceOnOffRequest,
     CarInOutRequest
 )
-from .service import DeviceService, CarService, PaymentService
+from .service import DeviceService, CarService, PaymentService, BaseService
 from .config import Config
 from .util import success_response, error_response
 from typing import List, Optional
@@ -20,10 +20,9 @@ def convert_pydantic_model(obj):
         return obj.model_dump()
     return obj
 
-from .util import success_response
-
 close_dsp_router = APIRouter()
 
+base_service = BaseService()
 device_service = DeviceService()
 car_service = CarService(device_service)
 pay_service = PaymentService()
@@ -219,7 +218,7 @@ async def pay_order(
 #     lot_id: str = Query(default="280025535", description="车场ID，测试环境280025535，灰度280030477")
 # ):
 #     """模拟退款订单接口"""
-#     return await pay_service.refund_order(car_no,lot_id)
+#     pass
 
 @close_dsp_router.get("/config", description="获取配置信息接口", summary="获取配置信息接口")
 async def get_config():
@@ -279,3 +278,16 @@ async def get_device_status(
     except Exception as e:
         logger.error(f"查询设备状态失败: {e}")
         return error_response(message=f"查询设备状态失败: {str(e)}")
+
+
+@close_dsp_router.get("/getChannelQrPic", description="获取通道二维码图片接口", summary="获取通道二维码图片接口")
+async def get_channel_qr_pic(
+    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477")
+):
+    """获取通道二维码图片接口"""
+    try:
+        result = await base_service.get_channel_qr_pic(lot_id)
+        return success_response(data=result)
+    except Exception as e:
+        logger.error(f"获取通道二维码图片失败: {e}")
+        return error_response(message=f"获取通道二维码图片失败: {str(e)}")

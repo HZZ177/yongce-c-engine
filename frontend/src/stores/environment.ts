@@ -86,8 +86,13 @@ export const useEnvironmentStore = defineStore('environment', () => {
 
   // 设备状态轮询相关
   const deviceStatusPolling = ref<NodeJS.Timeout | null>(null)
-  const deviceStatusPollingInterval = ref(3000) // 默认3秒轮询一次
+  const deviceStatusPollingInterval = ref(5000) // 默认5秒轮询一次
   const lastDeviceStatusFetch = ref<Record<string, { online: boolean; updatedAt: number }>>({})
+
+  // 二维码数据缓存
+  const qrCodeData = ref<Record<string, any>>({})
+  const qrCodeDataLoading = ref(false)
+  const qrCodeDataLoaded = ref(false)
 
   // 计算属性
   const currentLotConfig = computed(() => {
@@ -149,11 +154,31 @@ export const useEnvironmentStore = defineStore('environment', () => {
     currentEnv.value = env
     // 保存到本地存储
     localStorage.setItem('yongce-current-env', env)
+
+    // 重置通道码缓存
+    qrCodeData.value = {}
+    qrCodeDataLoaded.value = false
+
     // 自动切换到该环境下的第一个车场
     const lots = lotConfigs.value[env] || []
     if (lots.length > 0) {
       currentLotId.value = lots[0].id
       localStorage.setItem('yongce-current-lot-id', lots[0].id)
+      
+      // 环境切换完成后立即查询设备状态，避免等待轮询延迟
+      const currentLot = lots[0]
+      if (currentLot && (currentLot.inDeviceIp || currentLot.outDeviceIp)) {
+        const ips = []
+        if (currentLot.inDeviceIp) ips.push(currentLot.inDeviceIp)
+        if (currentLot.outDeviceIp) ips.push(currentLot.outDeviceIp)
+        
+        if (ips.length > 0) {
+          // 异步调用，不阻塞环境切换流程
+          fetchDeviceStatus(ips).catch(error => {
+            console.warn('环境切换后设备状态查询失败:', error)
+          })
+        }
+      }
     } else {
       // 如果没有可用车场，清空当前选择
       currentLotId.value = ''
@@ -165,9 +190,29 @@ export const useEnvironmentStore = defineStore('environment', () => {
     currentLotId.value = lotId
     // 保存到本地存储
     localStorage.setItem('yongce-current-lot-id', lotId)
+
+    // 重置通道码缓存
+    qrCodeData.value = {}
+    qrCodeDataLoaded.value = false
+
     // 切换车场后重新获取节点状态
     if (cloudKtToken.value) {
       fetchNodeStatus()
+    }
+    
+    // 车场切换完成后立即查询设备状态，避免等待轮询延迟
+    const currentLot = lotConfigs.value[currentEnv.value]?.find(lot => lot.id === lotId)
+    if (currentLot && (currentLot.inDeviceIp || currentLot.outDeviceIp)) {
+      const ips = []
+      if (currentLot.inDeviceIp) ips.push(currentLot.inDeviceIp)
+      if (currentLot.outDeviceIp) ips.push(currentLot.outDeviceIp)
+      
+      if (ips.length > 0) {
+        // 异步调用，不阻塞车场切换流程
+        fetchDeviceStatus(ips).catch(error => {
+          console.warn('车场切换后设备状态查询失败:', error)
+        })
+      }
     }
   }
 
@@ -357,6 +402,56 @@ export const useEnvironmentStore = defineStore('environment', () => {
     }
   }
 
+  // 预加载二维码数据
+  const preloadQrCodeData = async () => {
+    if (!currentLotId.value || qrCodeDataLoading.value) {
+      return
+    }
+    
+    qrCodeDataLoading.value = true
+    try {
+      const response = await axios.get('/closeApp/getChannelQrPic', {
+        params: {
+          lot_id: currentLotId.value
+        }
+      })
+      
+      if (response.data.code === 200 && response.data.data) {
+        const responseData = response.data.data
+        
+        if (responseData.success && responseData.data?.records) {
+          // 将二维码数据按通道名称存储
+          const qrCodeMap: Record<string, any> = {}
+          responseData.data.records.forEach((record: any) => {
+            if (record.nodeName && record.nodeQrCode) {
+              qrCodeMap[record.nodeName] = record
+            }
+          })
+          
+          qrCodeData.value = qrCodeMap
+          qrCodeDataLoaded.value = true
+          console.log('二维码数据预加载成功:', Object.keys(qrCodeMap))
+        }
+      }
+    } catch (error) {
+      console.error('预加载二维码数据失败:', error)
+      qrCodeDataLoaded.value = false
+    } finally {
+      qrCodeDataLoading.value = false
+    }
+  }
+
+  // 获取指定通道的二维码数据
+  const getQrCodeData = (channelName: string) => {
+    return qrCodeData.value[channelName] || null
+  }
+
+  // 刷新二维码数据
+  const refreshQrCodeData = async () => {
+    qrCodeDataLoaded.value = false
+    await preloadQrCodeData()
+  }
+
   return {
     // 状态
     currentEnv,
@@ -371,6 +466,9 @@ export const useEnvironmentStore = defineStore('environment', () => {
     lastDeviceStatusFetch,
     deviceStatusPollingInterval,
     deviceStatusPolling,
+    qrCodeData,
+    qrCodeDataLoading,
+    qrCodeDataLoaded,
     
     // 计算属性
     currentLotConfig,
@@ -390,6 +488,9 @@ export const useEnvironmentStore = defineStore('environment', () => {
     fetchDeviceStatus,
     startDeviceStatusPolling,
     stopDeviceStatusPolling,
-    setDeviceStatusPollingInterval
+    setDeviceStatusPollingInterval,
+    preloadQrCodeData,
+    getQrCodeData,
+    refreshQrCodeData
   }
 }) 

@@ -7,7 +7,8 @@ import type {
   PayOrderRequest,
   NodeStatusRequest,
   NodeStatusResponse,
-  ChangeNodeStatusRequest
+  ChangeNodeStatusRequest,
+  GetChannelQrPicResponse
 } from '@/types'
 
 // 创建axios实例
@@ -70,6 +71,12 @@ export const deviceApi = {
   // 查询设备真实在线状态
   deviceStatus: async (params: { device_ips: string, ttl_seconds?: number }): Promise<ApiResponse> => {
     const response = await api.get('/deviceStatus', { params })
+    return response.data
+  },
+
+  // 获取通道二维码图片
+  getChannelQrPic: async (params: { lot_id: string }): Promise<ApiResponse<GetChannelQrPicResponse>> => {
+    const response = await api.get('/getChannelQrPic', { params })
     return response.data
   }
 }

@@ -79,6 +79,9 @@
             <el-button type="primary" size="small" @click="handleSetCloudToken">
               设置云助手Token
             </el-button>
+            <StandardTooltip
+              content="需要手动代理登录到对应车场的云助手获取一下"
+            />
             <el-button 
               type="success" 
               size="small" 
@@ -115,14 +118,26 @@
               </div>
               <span class="device-ip">{{ device.ip }}</span>
             </div>
-            <el-button 
-              :type="device.status ? 'danger' : 'primary'"
-              size="small"
-              @click="handleDeviceToggle(device)"
-              :loading="device.loading"
-            >
-              {{ device.status ? '下线' : '上线' }}
-            </el-button>
+            <!-- 按钮容器 -->
+            <div class="device-buttons">
+              <el-button 
+                :type="device.status ? 'danger' : 'primary'"
+                size="small"
+                @click="handleDeviceToggle(device)"
+                :loading="device.loading"
+              >
+                {{ device.status ? '下线' : '上线' }}
+              </el-button>
+              <!-- 查看二维码按钮 -->
+              <el-button 
+                type="info"
+                size="small"
+                @click="handleViewQrCode(device)"
+                :disabled="!envStore.currentLotId"
+              >
+                通道码
+              </el-button>
+            </div>
             <!-- 长抬状态开关 -->
             <div class="long-lift-status">
               <span class="status-label">通道长抬</span>
@@ -175,6 +190,14 @@
         <OperationHistory />
       </el-col>
     </el-row>
+    
+    <!-- 二维码弹窗 -->
+    <QrCodeDialog
+      v-model="qrCodeDialogVisible"
+      :channel-name="currentQrCodeDevice ? getChannelName(currentQrCodeDevice) : ''"
+      :channel-type="currentQrCodeDevice?.type || 'in'"
+      :lot-id="envStore.currentLotId"
+    />
   </div>
 </template>
 
@@ -188,6 +211,7 @@ import VehicleManagement from '@/components/VehicleManagement.vue'
 import PaymentManagement from '@/components/PaymentManagement.vue'
 import OperationHistory from '@/components/OperationHistory.vue'
 import StandardTooltip from '@/components/StandardTooltip.vue'
+import QrCodeDialog from '@/components/QrCodeDialog.vue'
 
 const envStore = useEnvironmentStore()
 const historyStore = useHistoryStore()
@@ -196,6 +220,10 @@ const deviceLoading = ref(false)
 // 设备加载状态管理
 const deviceLoadingStates = ref<Record<string, boolean>>({})
 
+// 二维码弹窗状态
+const qrCodeDialogVisible = ref(false)
+const currentQrCodeDevice = ref<any>(null)
+
 // 组件挂载时加载配置
 onMounted(async () => {
   if (!envStore.configLoaded) {
@@ -203,6 +231,10 @@ onMounted(async () => {
   }
   // 启动设备状态轮询
   envStore.startDeviceStatusPolling()
+  // 预加载二维码数据
+  if (envStore.currentLotId) {
+    await envStore.preloadQrCodeData()
+  }
 })
 
 // 组件卸载时停止轮询
@@ -309,6 +341,17 @@ const handleLongLiftStatusChange = async (device: any, newStatus: string) => {
   } finally {
     deviceLoadingStates.value[device.ip] = false
   }
+}
+
+// 查看二维码
+const handleViewQrCode = (device: any) => {
+  if (!envStore.currentLotId) {
+    ElMessage.warning('请先选择车场')
+    return
+  }
+  
+  currentQrCodeDevice.value = device
+  qrCodeDialogVisible.value = true
 }
 
 // 设置云助手Token
@@ -520,11 +563,15 @@ const deviceList = computed(() => {
 const handleEnvSwitch = async (env: 'test' | 'prod', event: Event) => {
   event.preventDefault()
   envStore.setEnvironment(env)
+  // 环境切换后预加载通道码缓存
+  await envStore.preloadQrCodeData()
 }
 
 // 车场切换
-const handleLotChange = (lotId: string) => {
+const handleLotChange = async (lotId: string) => {
   envStore.setLotId(lotId)
+  // 车场切换后预加载二维码数据
+  await envStore.preloadQrCodeData()
 }
 
 // 设备操作
@@ -745,7 +792,7 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  margin-left: 180px;
+  margin-left: 220px;
   display: flex;
   gap: 8px;
 }
@@ -865,7 +912,7 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   border: 1px solid #e5e7eb;
   flex: 1;
   justify-content: center;
-  min-height: 60px;
+  min-height: 80px;
 }
 
 .device-type-status {
@@ -943,6 +990,25 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
   border: 1px solid #e5e7eb;
   font-family: 'Courier New', monospace;
   font-weight: 500;
+}
+
+.device-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  width: 80px;
+  padding: 0;
+}
+
+.device-buttons .el-button {
+  width: 100%;
+  min-width: 70px;
+  margin: 0;
+  padding: 8px 15px;
+  box-sizing: border-box;
 }
 
 .long-lift-status {
