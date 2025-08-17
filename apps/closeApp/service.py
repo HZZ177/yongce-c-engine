@@ -101,8 +101,8 @@ class BaseService:
         查询在场车辆
         :param lot_id: 车场ID
         :param car_no: 车牌号
-        :param start_time: 开始时间
-        :param end_time: 结束时间
+        :param start_time: 开始时间（可选，默认当天00:00:00）
+        :param end_time: 结束时间（可选，默认当天23:59:59）
         :return: 在场车辆信息
         """
         if not self.config.is_supported_lot_id(lot_id):

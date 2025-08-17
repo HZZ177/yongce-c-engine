@@ -80,7 +80,7 @@
               设置云助手Token
             </el-button>
             <StandardTooltip
-              content="需要手动代理登录到对应车场的云助手获取一下"
+              content="需要在运维中心手动代理登录到对应车场的云助手获取一下"
             />
             <el-button 
               type="success" 

@@ -324,9 +324,7 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
   try {
     const params = {
       lot_id: envStore.currentLotId,
-      car_no: carNo,
-      start_time: '',
-      end_time: ''
+      car_no: carNo
     }
     
     const result = await vehicleApi.carOnPark(params)
