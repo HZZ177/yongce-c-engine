@@ -280,7 +280,7 @@ const handleLongLiftStatusChange = async (device: any, newStatus: string) => {
   const node = envStore.nodeStatus.find(item => item.nodeName === channelName)
   
   if (!node) {
-    ElMessage.warning('未找到对应的通道节点信息')
+    ElMessage.warning('未在缓存中找到对应的通道节点信息，可能是名称与车场配置不对应或token失效，请检查')
     return
   }
   
