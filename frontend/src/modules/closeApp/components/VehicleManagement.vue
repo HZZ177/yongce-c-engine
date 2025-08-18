@@ -209,7 +209,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useEnvironmentStore } from '../stores/environment'
 import { useHistoryStore } from '../stores/history'
-import { vehicleApi } from '../api'
+import { vehicleApi } from '../api/closeApp'
 import { Calendar, Check } from '@element-plus/icons-vue'
 
 const envStore = useEnvironmentStore()

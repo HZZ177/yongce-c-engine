@@ -1,9 +1,9 @@
 import axios from 'axios'
-import type { 
-  ApiResponse, 
-  DeviceOnOffRequest, 
-  CarInOutRequest, 
-  CarOnParkRequest, 
+import type {
+  ApiResponse,
+  DeviceOnOffRequest,
+  CarInOutRequest,
+  CarOnParkRequest,
   PayOrderRequest,
   NodeStatusRequest,
   NodeStatusResponse,

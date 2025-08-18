@@ -150,7 +150,7 @@ import { ref, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useEnvironmentStore } from '../stores/environment'
 import { useHistoryStore } from '../stores/history'
-import { paymentApi } from '../api'
+import { paymentApi } from '../api/closeApp'
 
 const envStore = useEnvironmentStore()
 const historyStore = useHistoryStore()

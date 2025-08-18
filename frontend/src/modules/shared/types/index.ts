@@ -1,9 +1,4 @@
-// 环境类型
-export type Environment = 'test' | 'prod'
+// 统一导出所有共享类型
 
-// API响应格式
-export interface ApiResponse<T = any> {
-  data: T
-  resultCode: number
-  resultMsg?: string
-}
+// 重新导出共享类型
+export type { Environment, ApiResponse } from './shared'

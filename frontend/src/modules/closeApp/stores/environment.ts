@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Environment, EnvironmentConfig, LotConfig } from '../types'
 import axios from 'axios'
-import { deviceApi, nodeApi } from '../api'
+import { deviceApi, nodeApi } from '../api/closeApp'
 
 export const useEnvironmentStore = defineStore('environment', () => {
   // 自定义车场名称映射字典
