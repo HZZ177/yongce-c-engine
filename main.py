@@ -33,5 +33,6 @@ if __name__ == "__main__":
         app="main:app",
         host="0.0.0.0",
         port=17771,
-        reload=True
+        reload=True,
+        access_log=False  # 禁用uvicorn访问日志，避免与自定义中间件重复
     )
