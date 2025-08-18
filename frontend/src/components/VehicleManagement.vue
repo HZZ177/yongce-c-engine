@@ -86,7 +86,7 @@
       
       <!-- 操作按钮 -->
       <div class="form-buttons-container">
-        <div class="action-buttons">
+                <div class="action-buttons">
           <el-button 
             type="primary" 
             @click="handleCarIn" 
@@ -105,19 +105,75 @@
           >
             车辆出场
           </el-button>
-          <el-button 
-            type="info" 
-            @click="handleQueryOnPark" 
-            :loading="loading.query"
-            size="default"
-            class="action-button"
-          >
-            查询在场(当天)
-          </el-button>
+          <div class="query-group">
+            <el-button
+              type="info"
+              @click="handleQueryOnPark"
+              :loading="loading.query"
+              size="default"
+              class="action-button"
+            >
+              查询在场(不选日期默认当天)
+            </el-button>
+            <div class="date-picker-wrapper">
+              <el-button
+                ref="dateIconButtonRef"
+                type="text"
+                size="small"
+                class="date-icon-button"
+                :class="{ 'has-date': hasCustomDate }"
+                :title="hasCustomDate ? '已选择日期范围' : '选择日期范围'"
+                @click="showDateRangePicker"
+              >
+                <div class="date-icon-container">
+                  <el-icon class="date-icon">
+                    <Calendar />
+                  </el-icon>
+                  <el-icon v-if="hasCustomDate" class="check-icon">
+                    <Check />
+                  </el-icon>
+                </div>
+              </el-button>
+
+              <!-- 日期范围选择下拉面板 -->
+              <div
+                ref="dateRangePanelRef"
+                v-show="showDateRangePanel"
+                class="date-range-panel"
+                @click.stop
+              >
+                <div class="date-range-panel-content">
+                  <div class="date-picker-container">
+                    <el-date-picker
+                      v-model="tempDateRange"
+                      type="datetimerange"
+                      range-separator="至"
+                      start-placeholder="开始日期时间"
+                      end-placeholder="结束日期时间"
+                      format="YYYY-MM-DD HH:mm:ss"
+                      value-format="YYYY-MM-DD HH:mm:ss"
+                      style="width: 100%"
+                      locale="zh-cn"
+                      :default-time="[
+                        new Date(2000, 1, 1, 0, 0, 0),
+                        new Date(2000, 1, 1, 23, 59, 59)
+                      ]"
+                    />
+                  </div>
+                  <div class="panel-footer">
+                    <el-button size="small" @click="clearDateRange">清除</el-button>
+                    <el-button size="small" type="primary" @click="confirmDateRange">确定</el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    
+
+
+
     <!-- 查询结果 -->
     <div v-if="queryResult" class="query-result">
       <div class="result-header">
@@ -149,11 +205,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useHistoryStore } from '@/stores/history'
 import { vehicleApi } from '@/api/closeApp'
+import { Calendar, Check } from '@element-plus/icons-vue'
 
 const envStore = useEnvironmentStore()
 const historyStore = useHistoryStore()
@@ -177,6 +234,16 @@ const loading = reactive({
 
 // 查询结果
 const queryResult = ref<any>(null)
+
+// 日期选择相关状态
+const dateRange = ref<[Date, Date] | null>(null)
+const tempDateRange = ref<[Date, Date] | null>(null)
+const hasCustomDate = ref(false)
+const showDateRangePanel = ref(false)
+
+// 模板引用
+const dateIconButtonRef = ref()
+const dateRangePanelRef = ref()
 
 // 车辆入场
 const handleCarIn = async () => {
@@ -307,6 +374,65 @@ const handleQueryOnPark = async () => {
   await performQueryOnPark(form.carNo, false)
 }
 
+// 显示日期范围选择器
+const showDateRangePicker = () => {
+  tempDateRange.value = dateRange.value ? [...dateRange.value] : null
+  showDateRangePanel.value = true
+}
+
+// 确认日期范围选择
+const confirmDateRange = () => {
+  if (tempDateRange.value && tempDateRange.value.length === 2) {
+    dateRange.value = tempDateRange.value
+    hasCustomDate.value = true
+    showDateRangePanel.value = false
+    ElMessage.success('日期范围已设置')
+  } else {
+    ElMessage.warning('请选择日期范围')
+  }
+}
+
+// 清除日期范围
+const clearDateRange = () => {
+  tempDateRange.value = null
+  dateRange.value = null
+  hasCustomDate.value = false
+  showDateRangePanel.value = false
+  ElMessage.info('日期范围已清除')
+}
+
+// 点击外部关闭面板
+const handleClickOutside = (event: Event) => {
+  if (!showDateRangePanel.value) return
+
+  const target = event.target as Element
+  const panel = dateRangePanelRef.value?.$el || dateRangePanelRef.value
+  const button = dateIconButtonRef.value?.$el || dateIconButtonRef.value
+
+  // 检查是否点击了面板内部或按钮
+  if (panel && panel.contains(target)) return
+  if (button && button.contains(target)) return
+
+  // 检查是否点击了 Element Plus 日期选择器的弹出层
+  const datePickerPopups = document.querySelectorAll('.el-picker__popper, .el-popper, .el-date-picker__time-header')
+  for (const popup of datePickerPopups) {
+    if (popup && popup.contains(target)) return
+  }
+
+  // 如果都不是，则关闭面板
+  showDateRangePanel.value = false
+}
+
+// 组件挂载时添加事件监听
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+// 组件卸载时移除事件监听
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
 // 执行查询在场车辆（支持自动查询模式）
 const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => {
   if (!carNo) {
@@ -322,9 +448,16 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
   const startTime = Date.now()
   
   try {
-    const params = {
+    const params: any = {
       lot_id: envStore.currentLotId,
       car_no: carNo
+    }
+    
+    // 如果选择了自定义日期范围，添加时间参数
+    if (hasCustomDate.value && dateRange.value && dateRange.value.length === 2) {
+      const [startDate, endDate] = dateRange.value
+      params.start_time = startDate
+      params.end_time = endDate
     }
     
     const result = await vehicleApi.carOnPark(params)
@@ -471,12 +604,67 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .action-button {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* 查询按钮和日期按钮的组合样式 */
+.query-group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.date-picker-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.date-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background-color: #f0f2f5;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.25rem;
+  padding: 0;
+}
+
+.date-icon-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.date-icon {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  font-size: 1.25rem !important;
+}
+
+.check-icon {
+  position: absolute;
+  bottom: -0.125rem;
+  right: -0.125rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: #10b981;
+  background-color: #fff;
+  border-radius: 50%;
+  padding: 0.125rem;
 }
 
 .button-icon {
@@ -573,4 +761,52 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
 .el-radio__label {
   font-size: 0.875rem;
 }
+
+/* 日期选择相关样式 */
+.date-icon-button:hover {
+  background-color: #e0e3e7;
+  border-color: #9ca3af;
+}
+
+.date-icon-button.has-date {
+  background-color: #f0f9ff;
+  border-color: #0ea5e9;
+}
+
+.date-icon-button.has-date:hover {
+  background-color: #e0f2fe;
+  border-color: #0284c7;
+}
+
+/* 日期范围下拉面板样式 */
+.date-range-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  margin-top: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  min-width: 400px;
+}
+
+.date-range-panel-content {
+  padding: 1.25rem;
+}
+
+.date-picker-container {
+  margin-bottom: 1rem;
+}
+
+.panel-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+
 </style> 

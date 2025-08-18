@@ -1,12 +1,11 @@
+
 import sys
 import threading
 from datetime import datetime
 from loguru import logger
+from typing import List, Union, Dict, Any
 from core.file_path import log_path
 
-
-current_date = datetime.now().strftime("%Y-%m-%d")
-current_hour = datetime.now().strftime("%H")
 
 # 自定义每个级别日志的信息头颜色
 logger.level("DEBUG", color="<blue>")
@@ -17,7 +16,7 @@ logger.level("ERROR", color="<red>")
 logger.level("CRITICAL", color="<bold><red>")
 
 
-# 配置自定义 logger handler，输出日志到：1、标准输出 2、日志输出文件 3、Allure报告
+# 配置自定义 logger handler，输出日志到：1、标准输出 2、日志输出文件
 logger.configure(
     handlers=[
         {
@@ -30,11 +29,11 @@ logger.configure(
             "enqueue": False,  # 关闭多线程安全队列
         },
         {
-            "sink": f"{log_path}/{current_date}/yongce_pro_c_engine_{current_hour}.log",  # 指定日志输出到文件
+            "sink": f"{log_path}/yongce_pro_c_engine_{{time:YYYY-MM-DD_HH}}.log",  # 指定日志输出到文件
             "level": "INFO",  # 日志级别
             "format": "{time:YYYY-MM-DD HH:mm:ss.SSSS} | {module}:{line} | {level} | {message}",  # 日志格式
             "rotation": "1 hour",  # 每小时自动分割日志
-            "retention": "1 week",  # 保留最近 7 天的日志文件
+            "retention": "7 days",  # 保留最近 7 天的日志文件
             "compression": "zip",  # 压缩日志文件
             "backtrace": True,   # 控制是否追溯详细的回溯信息（即代码调用链和变量状态等详细信息）
             "diagnose": True,  # 控制是否包含详细的诊断信息
