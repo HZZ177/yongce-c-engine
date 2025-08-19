@@ -5,21 +5,15 @@ import axios from 'axios'
 import { deviceApi, nodeApi } from '../api/closeApp'
 
 export const useEnvironmentStore = defineStore('environment', () => {
-  // 自定义车场名称映射字典
-  const customLotNames: Record<string, string> = {
-    // 测试环境车场
-    '280025535': '天府新谷测试环境车场1',
-    // 生产环境车场
-    '280030477': '成都灰度环境封闭测试车场',
-  }
-
-  // 获取车场名称的函数
+  // 获取车场名称的函数 - 从后端配置获取
   const getLotName = (lotId: string, env: Environment, index: number): string => {
-    // 优先使用自定义名称
-    if (customLotNames[lotId]) {
-      return customLotNames[lotId]
+    // 从后端配置中查找车场名称
+    const lots = lotConfigs.value[env] || []
+    const lot = lots.find(l => l.id === lotId)
+    if (lot && lot.name) {
+      return lot.name
     }
-    // 如果没有自定义名称，使用默认规则
+    // 如果没有配置名称，使用默认规则
     return env === 'test' ? `测试车场${index + 1}` : `生产车场${index + 1}`
   }
 
@@ -34,20 +28,45 @@ export const useEnvironmentStore = defineStore('environment', () => {
     return stored || ''
   }
   
-  // 通道名称映射（ip -> 通道名称）
-  const getStoredChannelNames = (): Record<string, string> => {
-    try {
-      const stored = localStorage.getItem('yongce-channel-names')
-      return stored ? JSON.parse(stored) : {}
-    } catch {
-      return {}
+  // 通道名称映射（从后端配置获取）
+  const channelNameMap = ref<Record<string, string>>({})
+
+  // 获取通道名称（从后端配置获取，兜底为入口通道/出口通道）
+  const getChannelName = (deviceIp: string, deviceType: 'in' | 'out'): string => {
+    // 从后端配置获取通道名称
+    if (channelNameMap.value[deviceIp]) {
+      return channelNameMap.value[deviceIp]
     }
+
+    // 兜底名称
+    return deviceType === 'in' ? '入口通道' : '出口通道'
   }
-  const channelNameMap = ref<Record<string, string>>(getStoredChannelNames())
-  const setChannelName = (ip: string, name: string) => {
-    if (!ip) return
-    channelNameMap.value = { ...channelNameMap.value, [ip]: name }
-    localStorage.setItem('yongce-channel-names', JSON.stringify(channelNameMap.value))
+
+  // 设置通道名称（更新后端配置）
+  const setChannelName = async (deviceIp: string, name: string): Promise<boolean> => {
+    if (!deviceIp || !currentLotId.value) return false
+
+    try {
+      const response = await axios.put('/closeApp/config/channel-name', null, {
+        params: {
+          lot_id: currentLotId.value,
+          device_ip: deviceIp,
+          channel_name: name
+        }
+      })
+
+      if (response.data.code === 200) {
+        // 更新本地缓存
+        channelNameMap.value = { ...channelNameMap.value, [deviceIp]: name }
+        // 重新加载配置以确保数据同步
+        await loadConfig()
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('设置通道名称失败:', error)
+      return false
+    }
   }
 
   // 云助手token存储
@@ -241,36 +260,77 @@ export const useEnvironmentStore = defineStore('environment', () => {
       // 解析配置数据
       const testLots: LotConfig[] = []
       const prodLots: LotConfig[] = []
-      
-      // 处理测试环境配置
-      const testLotIds = configData.support_parking_ips?.test || []
-      const testServerIps = configData.support_server_ips?.test || []
-      const testDevices = configData.device?.test || {}
-      
-      testLotIds.forEach((lotId: string, index: number) => {
-        testLots.push({
-          id: lotId,
-          name: getLotName(lotId, 'test', index),
-          serverIp: testServerIps[index] || '',
-          inDeviceIp: testDevices.in_device || '',
-          outDeviceIp: testDevices.out_device || ''
+
+      // 优先使用新的parking_lots结构
+      if (configData.parking_lots) {
+        // 处理测试环境配置
+        const testParkingLots = configData.parking_lots.test || []
+        testParkingLots.forEach((lot: any, index: number) => {
+          const lotConfig = {
+            id: lot.id,
+            name: lot.name || getLotName(lot.id, 'test', index),
+            serverIp: lot.server_ip || '',
+            inDeviceIp: lot.devices?.in_device || '',
+            outDeviceIp: lot.devices?.out_device || '',
+            channelNames: lot.channel_names || {}
+          }
+          testLots.push(lotConfig)
+
+          // 更新通道名称映射
+          if (lot.channel_names) {
+            Object.assign(channelNameMap.value, lot.channel_names)
+          }
         })
-      })
-      
-      // 处理生产环境配置
-      const prodLotIds = configData.support_parking_ips?.prod || []
-      const prodServerIps = configData.support_server_ips?.prod || []
-      const prodDevices = configData.device?.prod || {}
-      
-      prodLotIds.forEach((lotId: string, index: number) => {
-        prodLots.push({
-          id: lotId,
-          name: getLotName(lotId, 'prod', index),
-          serverIp: prodServerIps[index] || '',
-          inDeviceIp: prodDevices.in_device || '',
-          outDeviceIp: prodDevices.out_device || ''
+
+        // 处理生产环境配置
+        const prodParkingLots = configData.parking_lots.prod || []
+        prodParkingLots.forEach((lot: any, index: number) => {
+          const lotConfig = {
+            id: lot.id,
+            name: lot.name || getLotName(lot.id, 'prod', index),
+            serverIp: lot.server_ip || '',
+            inDeviceIp: lot.devices?.in_device || '',
+            outDeviceIp: lot.devices?.out_device || '',
+            channelNames: lot.channel_names || {}
+          }
+          prodLots.push(lotConfig)
+
+          // 更新通道名称映射
+          if (lot.channel_names) {
+            Object.assign(channelNameMap.value, lot.channel_names)
+          }
         })
-      })
+      } else {
+        // 向后兼容：使用旧的配置结构
+        const testLotIds = configData.support_parking_ips?.test || []
+        const testServerIps = configData.support_server_ips?.test || []
+        const testDevices = configData.device?.test || {}
+
+        testLotIds.forEach((lotId: string, index: number) => {
+          testLots.push({
+            id: lotId,
+            name: getLotName(lotId, 'test', index),
+            serverIp: testServerIps[index] || '',
+            inDeviceIp: testDevices.in_device || '',
+            outDeviceIp: testDevices.out_device || ''
+          })
+        })
+
+        // 处理生产环境配置
+        const prodLotIds = configData.support_parking_ips?.prod || []
+        const prodServerIps = configData.support_server_ips?.prod || []
+        const prodDevices = configData.device?.prod || {}
+
+        prodLotIds.forEach((lotId: string, index: number) => {
+          prodLots.push({
+            id: lotId,
+            name: getLotName(lotId, 'prod', index),
+            serverIp: prodServerIps[index] || '',
+            inDeviceIp: prodDevices.in_device || '',
+            outDeviceIp: prodDevices.out_device || ''
+          })
+        })
+      }
       
       lotConfigs.value = {
         test: testLots,
@@ -469,18 +529,19 @@ export const useEnvironmentStore = defineStore('environment', () => {
     qrCodeData,
     qrCodeDataLoading,
     qrCodeDataLoaded,
-    
+
     // 计算属性
     currentLotConfig,
     serverIp,
     availableLots,
-    
+
     // 方法
     setEnvironment,
     setLotId,
     updateDeviceStatus,
     resetDeviceStatus,
     setChannelName,
+    getChannelName,
     setCloudKtToken,
     fetchNodeStatus,
     loadConfig,

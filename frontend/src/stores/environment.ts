@@ -5,21 +5,17 @@ import axios from 'axios'
 import { deviceApi } from '@/api/closeApp'
 
 export const useEnvironmentStore = defineStore('environment', () => {
-  // 自定义车场名称映射字典
-  const customLotNames: Record<string, string> = {
-    // 测试环境车场
-    '280025535': '天府新谷测试环境车场1',
-    // 生产环境车场
-    '280030477': '成都灰度环境封闭测试车场',
-  }
-
-  // 获取车场名称的函数
-  const getLotName = (lotId: string, env: Environment, index: number): string => {
-    // 优先使用自定义名称
-    if (customLotNames[lotId]) {
-      return customLotNames[lotId]
+  // 获取车场名称的函数 - 从配置数据中获取
+  const getLotName = (lotId: string, env: Environment, index: number, configData?: any): string => {
+    // 优先从parking_lots配置中获取名称
+    if (configData?.parking_lots?.[env]) {
+      const lot = configData.parking_lots[env].find((lot: any) => lot.id === lotId)
+      if (lot?.name) {
+        return lot.name
+      }
     }
-    // 如果没有自定义名称，使用默认规则
+
+    // 如果配置中没有找到，使用默认规则作为后备
     return env === 'test' ? `测试车场${index + 1}` : `生产车场${index + 1}`
   }
 
@@ -228,49 +224,78 @@ export const useEnvironmentStore = defineStore('environment', () => {
   }
 
   // 从后端API加载配置
-  const loadConfig = async () => {
-    if (configLoaded.value || configLoading.value) {
+  const loadConfig = async (force = false) => {
+    if (!force && (configLoaded.value || configLoading.value)) {
       return
     }
-    
+
     configLoading.value = true
     try {
       const response = await axios.get('/closeApp/config')
       const configData = response.data.data
-      
+
       // 解析配置数据
       const testLots: LotConfig[] = []
       const prodLots: LotConfig[] = []
-      
-      // 处理测试环境配置
-      const testLotIds = configData.support_parking_ips?.test || []
-      const testServerIps = configData.support_server_ips?.test || []
-      const testDevices = configData.device?.test || {}
-      
-      testLotIds.forEach((lotId: string, index: number) => {
-        testLots.push({
-          id: lotId,
-          name: getLotName(lotId, 'test', index),
-          serverIp: testServerIps[index] || '',
-          inDeviceIp: testDevices.in_device || '',
-          outDeviceIp: testDevices.out_device || ''
+
+      // 优先使用新的parking_lots配置结构
+      if (configData.parking_lots) {
+        // 处理测试环境配置
+        const testParkingLots = configData.parking_lots.test || []
+        testParkingLots.forEach((lot: any, index: number) => {
+          testLots.push({
+            id: lot.id,
+            name: lot.name || getLotName(lot.id, 'test', index, configData),
+            serverIp: lot.server_ip || '',
+            inDeviceIp: lot.devices?.in_device || '',
+            outDeviceIp: lot.devices?.out_device || '',
+            description: lot.description || ''
+          })
         })
-      })
-      
-      // 处理生产环境配置
-      const prodLotIds = configData.support_parking_ips?.prod || []
-      const prodServerIps = configData.support_server_ips?.prod || []
-      const prodDevices = configData.device?.prod || {}
-      
-      prodLotIds.forEach((lotId: string, index: number) => {
-        prodLots.push({
-          id: lotId,
-          name: getLotName(lotId, 'prod', index),
-          serverIp: prodServerIps[index] || '',
-          inDeviceIp: prodDevices.in_device || '',
-          outDeviceIp: prodDevices.out_device || ''
+
+        // 处理生产环境配置
+        const prodParkingLots = configData.parking_lots.prod || []
+        prodParkingLots.forEach((lot: any, index: number) => {
+          prodLots.push({
+            id: lot.id,
+            name: lot.name || getLotName(lot.id, 'prod', index, configData),
+            serverIp: lot.server_ip || '',
+            inDeviceIp: lot.devices?.in_device || '',
+            outDeviceIp: lot.devices?.out_device || '',
+            description: lot.description || ''
+          })
         })
-      })
+      } else {
+        // 向后兼容：使用旧的配置结构
+        const testLotIds = configData.support_parking_ips?.test || []
+        const testServerIps = configData.support_server_ips?.test || []
+        const testDevices = configData.device?.test || {}
+
+        testLotIds.forEach((lotId: string, index: number) => {
+          testLots.push({
+            id: lotId,
+            name: getLotName(lotId, 'test', index, configData),
+            serverIp: testServerIps[index] || '',
+            inDeviceIp: testDevices.in_device || '',
+            outDeviceIp: testDevices.out_device || ''
+          })
+        })
+
+        // 处理生产环境配置
+        const prodLotIds = configData.support_parking_ips?.prod || []
+        const prodServerIps = configData.support_server_ips?.prod || []
+        const prodDevices = configData.device?.prod || {}
+
+        prodLotIds.forEach((lotId: string, index: number) => {
+          prodLots.push({
+            id: lotId,
+            name: getLotName(lotId, 'prod', index, configData),
+            serverIp: prodServerIps[index] || '',
+            inDeviceIp: prodDevices.in_device || '',
+            outDeviceIp: prodDevices.out_device || ''
+          })
+        })
+      }
       
       lotConfigs.value = {
         test: testLots,

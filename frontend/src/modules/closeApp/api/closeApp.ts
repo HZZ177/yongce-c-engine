@@ -123,9 +123,44 @@ export const nodeApi = {
     // 此接口保持原始格式返回
     return response.data as unknown as NodeStatusResponse
   },
-  
+
   changeNodeStatus: async (params: ChangeNodeStatusRequest): Promise<ApiResponse> => {
     const response = await api.get('/changeNodeStatus', { params })
+    return response.data
+  }
+}
+
+// 车场管理API
+export const parkingLotApi = {
+  // 添加车场配置
+  addParkingLot: async (env: string, lotConfig: any): Promise<ApiResponse> => {
+    const response = await api.post('/config/parking-lot', lotConfig, {
+      params: { env }
+    })
+    return response.data
+  },
+
+  // 更新车场配置
+  updateParkingLot: async (lotId: string, updates: any): Promise<ApiResponse> => {
+    const response = await api.put(`/config/parking-lot/${lotId}`, updates)
+    return response.data
+  },
+
+  // 删除车场配置
+  deleteParkingLot: async (lotId: string): Promise<ApiResponse> => {
+    const response = await api.delete(`/config/parking-lot/${lotId}`)
+    return response.data
+  },
+
+  // 获取单个车场配置
+  getParkingLot: async (lotId: string): Promise<ApiResponse> => {
+    const response = await api.get(`/config/parking-lot/${lotId}`)
+    return response.data
+  },
+
+  // 重新加载配置
+  reloadConfig: async (): Promise<ApiResponse> => {
+    const response = await api.post('/config/reload')
     return response.data
   }
 }

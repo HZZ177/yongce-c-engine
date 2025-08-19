@@ -1,58 +1,62 @@
-# 服务器信息
-server:
-  test_server_ips: "192.168.0.183"
-  server_port: 5001
-  device_type: "1"
-
-# 支持的服务器列表
-support_server_ips:
-  test: ["192.168.0.183"]
-  prod: ["192.168.0.236"]
-
-# 支持车场信息
-support_parking_ips:
-  test: ["280025535"]
-  prod: ["280030477"]
-
-# 模拟设备地址
-device:
-  test:
-    in_device: "192.168.24.115"
-    out_device: "192.168.24.116"
-  prod:
-    in_device: "192.168.24.117"
-    out_device: "192.168.24.118"
-
-# 统一平台登录域名
-unity_login_domain:
-  test: 'https://ts.keytop.cn'
-  prod: 'http://park.keytop.cn'
-
-# 查询在场记录接口地址
 car_come_domain:
-  test: 'https://ipark-test.keytop.cn/nkc/carCome/findCarComePage'
-  prod: 'https://ipark.keytop.cn/nkc/carCome/findCarComePage'
-
-# 永策Pro域名
-yongce_pro_domain:
-  test: 'https://s2-test.keytop.cn/'
-  prod: 'http://ipark.keytop.cn/'
-
-# 云助手查询通道设备长抬情况接口
-cloud_channel_query_url:
-  test: "https://ts.keytop.cn/kos_visitor/service/nodeController/queryNodeList"
-  prod: "https://park.keytop.cn/kos_visitor/service/nodeController/queryNodeList"
-
-# 云助手变更通道设备长抬情况接口
+  prod: https://ipark.keytop.cn/nkc/carCome/findCarComePage
+  test: https://ipark-test.keytop.cn/nkc/carCome/findCarComePage
 cloud_channel_change_url:
-  test: "https://ts.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus"
-  prod: "https://park.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus"
-
-# 永策Pro-后台域名
+  prod: https://park.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus
+  test: https://ts.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus
+cloud_channel_query_url:
+  prod: https://park.keytop.cn/kos_visitor/service/nodeController/queryNodeList
+  test: https://ts.keytop.cn/kos_visitor/service/nodeController/queryNodeList
+device:
+  prod: &id001
+    in_device: 192.168.24.117
+    out_device: 192.168.24.118
+  test: &id002
+    in_device: 192.168.24.115
+    out_device: 192.168.24.116
+parking_lots:
+  prod:
+  - channel_names:
+      192.168.24.117: sy入口117
+      192.168.24.118: sy出口118
+    description: '1234'
+    devices: *id001
+    id: '280030477'
+    name: 成都灰度环境封闭测试车场
+    server_ip: 192.168.0.236
+  test:
+  - channel_names:
+      192.168.24.115: sy入口115
+      192.168.24.116: sy出口116
+    description: '1234'
+    devices: *id002
+    id: '280025535'
+    name: 天府新谷测试环境车场12
+    server_ip: 192.168.0.183
+server:
+  device_type: '1'
+  server_port: 5001
+  test_server_ips: 192.168.0.183
+support_parking_ips:
+  prod:
+  - '280030477'
+  test:
+  - '280025535'
+support_server_ips:
+  prod:
+  - 192.168.0.236
+  test:
+  - 192.168.0.183
+unity_login_domain:
+  prod: http://park.keytop.cn
+  test: https://ts.keytop.cn
 yongce_pro:
   domain:
-    test: 'https://yongce-pro-test.keytop.cn'
-    prod: 'https://yongce-zshjcs.keytop.cn'
+    prod: https://yongce-zshjcs.keytop.cn
+    test: https://yongce-pro-test.keytop.cn
   top_group_id:
-    test: "92b9cc14ba134fc4a0fe74cbf4ef5af2"
-    prod: "38f188755bca474b896bb7e390589c40"
+    prod: 38f188755bca474b896bb7e390589c40
+    test: 92b9cc14ba134fc4a0fe74cbf4ef5af2
+yongce_pro_domain:
+  prod: http://ipark.keytop.cn/
+  test: https://s2-test.keytop.cn/

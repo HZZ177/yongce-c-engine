@@ -6,6 +6,17 @@
         <!-- 第一行：标题 -->
         <div class="config-header">
           <div class="section-title">环境配置</div>
+          <div class="config-actions">
+            <el-button
+              type="primary"
+              size="small"
+              @click="showParkingLotEditor"
+              :disabled="!envStore.configLoaded"
+            >
+              <el-icon><Edit /></el-icon>
+              环境编辑
+            </el-button>
+          </div>
         </div>
         
         <!-- 第二行：环境按钮 -->
@@ -198,12 +209,20 @@
       :channel-type="currentQrCodeDevice?.type || 'in'"
       :lot-id="envStore.currentLotId"
     />
+
+    <!-- 车场编辑器 -->
+    <ParkingLotEditor
+      v-model="parkingLotEditorVisible"
+      :current-env="envStore.currentEnv"
+      @refresh="handleParkingLotRefresh"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Edit } from '@element-plus/icons-vue'
 import { useEnvironmentStore } from '../stores/environment'
 import { useHistoryStore } from '../stores/history'
 import { deviceApi, nodeApi } from '../api/closeApp'
@@ -212,6 +231,7 @@ import PaymentManagement from '../components/PaymentManagement.vue'
 import OperationHistory from '../components/OperationHistory.vue'
 import StandardTooltip from '@/modules/shared/components/StandardTooltip.vue'
 import QrCodeDialog from '../components/QrCodeDialog.vue'
+import ParkingLotEditor from '../components/ParkingLotEditor.vue'
 
 const envStore = useEnvironmentStore()
 const historyStore = useHistoryStore()
@@ -224,8 +244,14 @@ const deviceLoadingStates = ref<Record<string, boolean>>({})
 const qrCodeDialogVisible = ref(false)
 const currentQrCodeDevice = ref<any>(null)
 
+// 车场编辑器状态
+const parkingLotEditorVisible = ref(false)
+
 // 组件挂载时加载配置
 onMounted(async () => {
+  // 清理旧的localStorage数据（迁移到后端配置）
+  localStorage.removeItem('yongce-channel-names')
+
   if (!envStore.configLoaded) {
     await envStore.loadConfig()
   }
@@ -244,8 +270,7 @@ onUnmounted(() => {
 
 // 通道名称相关
 const getChannelName = (device: any): string => {
-  const name = envStore.channelNameMap[device.ip as string]
-  return name || (device.type === 'in' ? '入口通道' : '出口通道')
+  return envStore.getChannelName(device.ip, device.type)
 }
 
 const handleEditChannelName = async (device: any) => {
@@ -255,8 +280,13 @@ const handleEditChannelName = async (device: any) => {
       confirmButtonText: '确定',
       cancelButtonText: '取消'
     })
-    envStore.setChannelName(device.ip, value)
-    ElMessage.success('已更新通道名称')
+
+    const success = await envStore.setChannelName(device.ip, value)
+    if (success) {
+      ElMessage.success('通道名称更新成功')
+    } else {
+      ElMessage.error('通道名称更新失败')
+    }
   } catch {
     // 用户取消
   }
@@ -699,6 +729,22 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
     deviceLoading.value = false
   }
 }
+
+// 车场编辑器相关方法
+const showParkingLotEditor = () => {
+  parkingLotEditorVisible.value = true
+}
+
+const handleParkingLotRefresh = async () => {
+  console.log('开始刷新主界面配置数据...')
+  console.log('刷新前的设备IP:', envStore.currentLotConfig?.inDeviceIp, envStore.currentLotConfig?.outDeviceIp)
+
+  // 强制重新加载配置
+  await envStore.loadConfig(true)
+
+  console.log('刷新后的设备IP:', envStore.currentLotConfig?.inDeviceIp, envStore.currentLotConfig?.outDeviceIp)
+  ElMessage.success('车场配置已刷新')
+}
 </script>
 
 <style scoped>
@@ -746,6 +792,15 @@ const handleBatchOperation = async (operation: 'on' | 'off', operationName: stri
 
 .config-header .section-title {
   margin-bottom: 0;
+}
+
+.config-actions {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-left: 145px;
+  display: flex;
+  gap: 8px;
 }
 
 .server-ip {

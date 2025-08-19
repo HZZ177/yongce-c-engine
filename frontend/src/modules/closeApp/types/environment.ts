@@ -8,6 +8,8 @@ export interface LotConfig {
   serverIp: string
   inDeviceIp: string
   outDeviceIp: string
+  description?: string  // 车场描述
+  channelNames?: Record<string, string>  // 设备IP到通道名称的映射
 }
 
 // 环境配置

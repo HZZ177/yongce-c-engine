@@ -231,6 +231,133 @@ async def get_config():
         return error_response(message="获取配置信息失败")
 
 
+@close_dsp_router.post("/config/reload", description="重新加载配置文件", summary="重新加载配置文件")
+async def reload_config():
+    """重新加载配置文件接口
+
+    当直接修改配置文件后，可以调用此接口重新加载配置到内存中
+    """
+    try:
+        config.reload_config()
+        logger.info("配置文件重新加载成功")
+        return success_response(message="配置文件重新加载成功")
+    except Exception as e:
+        logger.error(f"重新加载配置文件失败: {e}")
+        return error_response(message=f"重新加载配置文件失败: {str(e)}")
+
+
+@close_dsp_router.post("/config/parking-lot", description="添加车场配置", summary="添加车场配置")
+async def add_parking_lot(
+    env: str = Query(..., description="环境名称 (test/prod)"),
+    lot_config: dict = None
+):
+    """添加车场配置"""
+    try:
+        if not lot_config:
+            return error_response(message="车场配置不能为空")
+
+        success = config.add_parking_lot(env, lot_config)
+        if success:
+            # add_parking_lot方法已经包含了保存和重载逻辑，无需重复调用
+            return success_response(message="车场配置添加成功")
+        else:
+            return error_response(message="车场配置添加失败")
+    except Exception as e:
+        logger.error(f"添加车场配置失败: {e}")
+        return error_response(message="添加车场配置失败")
+
+
+@close_dsp_router.put("/config/parking-lot/{lot_id}", description="更新车场配置", summary="更新车场配置")
+async def update_parking_lot(
+    lot_id: str,
+    updates: dict
+):
+    """更新车场配置"""
+    try:
+        success = config.update_parking_lot(lot_id, updates)
+        if success:
+            # update_parking_lot方法已经包含了保存和重载逻辑，无需重复调用
+            return success_response(message="车场配置更新成功")
+        else:
+            return error_response(message="车场配置更新失败，车场不存在")
+    except Exception as e:
+        logger.error(f"更新车场配置失败: {e}")
+        return error_response(message="更新车场配置失败")
+
+
+@close_dsp_router.delete("/config/parking-lot/{lot_id}", description="删除车场配置", summary="删除车场配置")
+async def delete_parking_lot(lot_id: str):
+    """删除车场配置"""
+    try:
+        success = config.remove_parking_lot(lot_id)
+        if success:
+            # remove_parking_lot方法已经包含了保存和重载逻辑，无需重复调用
+            return success_response(message="车场配置删除成功")
+        else:
+            return error_response(message="车场配置删除失败，车场不存在")
+    except Exception as e:
+        logger.error(f"删除车场配置失败: {e}")
+        return error_response(message="删除车场配置失败")
+
+
+@close_dsp_router.get("/config/parking-lot/{lot_id}", description="获取车场配置", summary="获取车场配置")
+async def get_parking_lot(lot_id: str):
+    """获取单个车场配置"""
+    try:
+        lot_config = config.get_parking_lot_by_id(lot_id)
+        if lot_config:
+            return success_response(data=lot_config)
+        else:
+            return error_response(message="车场不存在")
+    except Exception as e:
+        logger.error(f"获取车场配置失败: {e}")
+        return error_response(message="获取车场配置失败")
+
+
+@close_dsp_router.get("/config/channel-names/{lot_id}", description="获取车场通道名称配置", summary="获取车场通道名称配置")
+async def get_channel_names(lot_id: str):
+    """获取指定车场的通道名称配置"""
+    try:
+        channel_names = config.get_lot_channel_names(lot_id)
+        return success_response(data=channel_names)
+    except Exception as e:
+        logger.error(f"获取通道名称配置失败: {e}")
+        return error_response(message="获取通道名称配置失败")
+
+
+@close_dsp_router.put("/config/channel-name", description="设置通道名称", summary="设置通道名称")
+async def set_channel_name(
+    lot_id: str,
+    device_ip: str,
+    channel_name: str
+):
+    """设置指定车场设备的通道名称"""
+    try:
+        success = config.set_channel_name(lot_id, device_ip, channel_name)
+        if success:
+            # set_channel_name方法已经包含了保存和重载逻辑，无需重复调用
+            return success_response(message="通道名称设置成功")
+        else:
+            return error_response(message="设置失败，车场不存在")
+    except Exception as e:
+        logger.error(f"设置通道名称失败: {e}")
+        return error_response(message="设置通道名称失败")
+
+
+@close_dsp_router.get("/config/default-channel-name/{device_ip}", description="获取设备默认通道名称", summary="获取设备默认通道名称")
+async def get_default_channel_name(device_ip: str):
+    """获取设备IP对应的默认通道名称"""
+    try:
+        channel_name = config.get_default_channel_name(device_ip)
+        if channel_name:
+            return success_response(data={"device_ip": device_ip, "channel_name": channel_name})
+        else:
+            return error_response(message="未找到该设备的默认通道名称")
+    except Exception as e:
+        logger.error(f"获取默认通道名称失败: {e}")
+        return error_response(message="获取默认通道名称失败")
+
+
 @close_dsp_router.get("/nodeStatus", description="查询通道状态接口", summary="查询通道状态接口")
 async def node_status(
     lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
