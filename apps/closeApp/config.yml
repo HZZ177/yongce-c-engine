@@ -31,12 +31,8 @@ parking_lots:
     description: '1234'
     devices: *id002
     id: '280025535'
-    name: 天府新谷测试环境车场12
+    name: 天府新谷测试环境车场1
     server_ip: 192.168.0.183
-server:
-  device_type: '1'
-  server_port: 5001
-  test_server_ips: 192.168.0.183
 support_parking_ips:
   prod:
   - '280030477'

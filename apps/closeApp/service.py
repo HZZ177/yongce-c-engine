@@ -377,8 +377,8 @@ class CarService(BaseService):
 
             # 先使用DeviceProtocol进行设备上线
             device_protocol = DeviceProtocol(
-                server_ip=request.server_ip or self.config.get_server_ip(),
-                server_port=self.config.get_server_port(),
+                server_ip=request.server_ip or "192.168.0.183",
+                server_port=5001,
                 client_ip=device_ip
             )
 
@@ -388,8 +388,8 @@ class CarService(BaseService):
 
             # 发送车辆入场信息
             business_protocol = BusinessProtocol(
-                server_ip=request.server_ip or self.config.get_server_ip(),
-                server_port=self.config.get_server_port(),
+                server_ip=request.server_ip or "192.168.0.183",
+                server_port=5001,
                 client_ip=device_ip
             )
 
@@ -447,8 +447,8 @@ class CarService(BaseService):
 
             # 先使用DeviceProtocol进行设备上线
             device_protocol = DeviceProtocol(
-                server_ip=request.server_ip or self.config.get_server_ip(),
-                server_port=self.config.get_server_port(),
+                server_ip=request.server_ip or "192.168.0.183",
+                server_port=5001,
                 client_ip=device_ip
             )
 
@@ -458,8 +458,8 @@ class CarService(BaseService):
 
             # 发送车辆出场信息
             business_protocol = BusinessProtocol(
-                server_ip=request.server_ip or self.config.get_server_ip(),
-                server_port=self.config.get_server_port(),
+                server_ip=request.server_ip or "192.168.0.183",
+                server_port=5001,
                 client_ip=device_ip
             )
 
