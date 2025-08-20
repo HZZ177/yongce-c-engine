@@ -3,11 +3,16 @@
     <template #header>
       <div class="card-header">
         <div class="header-content">
-          <h3 class="card-title">操作历史</h3>
-          <p class="card-subtitle">查看所有操作记录和结果</p>
+          <h3 class="card-title">路侧操作历史</h3>
+          <p class="card-subtitle">记录所有路侧车场操作的详细历史</p>
         </div>
         <div class="header-actions">
-          <el-button type="danger" size="small" @click="handleClearHistory" class="clear-button">
+          <el-button
+            type="danger"
+            size="small"
+            @click="handleClearHistory"
+            :disabled="historyStore.history.length === 0"
+          >
             <svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
             </svg>
@@ -17,7 +22,7 @@
       </div>
     </template>
     
-    <el-table :data="historyList" style="width: 100%" max-height="450" class="history-table">
+    <el-table :data="historyStore.history" style="width: 100%" max-height="450" class="history-table">
       <template #empty>
         <div class="empty-table">
           <el-icon class="empty-icon" size="60">
@@ -66,21 +71,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import { Document } from '@element-plus/icons-vue'
-import { useHistoryStore } from '../stores/history'
+import { useRoadHistoryStore } from '../stores/history'
 
-const historyStore = useHistoryStore()
+const historyStore = useRoadHistoryStore()
 
-// 历史记录列表
-const historyList = computed(() => historyStore.historyList)
-
-// 清空历史
+// 清空历史记录
 const handleClearHistory = async () => {
   try {
     await ElMessageBox.confirm(
-      '确定要清空所有操作历史吗？此操作不可恢复。',
+      '确定要清空所有路侧操作历史记录吗？此操作不可恢复。',
       '确认清空',
       {
         confirmButtonText: '确定',
@@ -88,9 +89,9 @@ const handleClearHistory = async () => {
         type: 'warning'
       }
     )
-    
+
     historyStore.clearHistory()
-    ElMessage.success('历史记录已清空')
+    ElMessage.success('路侧操作历史已清空')
   } catch {
     // 用户取消操作
   }
@@ -98,7 +99,7 @@ const handleClearHistory = async () => {
 
 // 删除单条历史
 const handleRemoveHistory = (id: string) => {
-  historyStore.removeHistory(id)
+  historyStore.removeHistoryItem(id)
   ElMessage.success('删除成功')
 }
 </script>
@@ -106,8 +107,6 @@ const handleRemoveHistory = (id: string) => {
 <style scoped>
 .operation-history {
   margin-bottom: 1.5rem;
-  min-height: 500px;
-  max-height: 600px;
 }
 
 .card-header {
@@ -118,31 +117,25 @@ const handleRemoveHistory = (id: string) => {
 }
 
 .header-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
   text-align: center;
 }
 
 .card-title {
+  margin: 0 0 0.25rem 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #111827;
-  margin: 0;
+  color: #1f2937;
 }
 
 .card-subtitle {
+  margin: 0;
   font-size: 0.875rem;
   color: #6b7280;
-  margin: 0;
 }
 
 .header-actions {
   position: absolute;
   right: 0;
-  display: flex;
-  gap: 0.75rem;
 }
 
 .clear-button {
@@ -154,12 +147,6 @@ const handleRemoveHistory = (id: string) => {
 .button-icon {
   width: 0.875rem;
   height: 0.875rem;
-}
-
-.delete-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
 }
 
 .status-indicator {
@@ -246,7 +233,9 @@ const handleRemoveHistory = (id: string) => {
   text-align: center;
 }
 
-
+/* 删除按钮样式 */
+.delete-button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
 </style>
-
- 

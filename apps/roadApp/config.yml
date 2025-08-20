@@ -1,0 +1,19 @@
+api_endpoints:
+  swagger_base_url:
+    test: http://roadtest.keytop.cn:30033
+    prod: http://roadpark.keytop.cn:19900
+  car_in: /third/commonApi/parking/in
+  car_out: /third/commonApi/parking/out
+  fee_query: ""
+
+parking_lots:
+  test:
+  - id: '4799'
+    road_lot_id: 'LC5110000001'
+    name: 路侧测试车场-永策
+    description: 路侧测试车场-永策
+  prod:
+  - id: '280030147'
+    road_lot_id: 'LC5101000004'
+    name: 灰度测试车场-永策C端
+    description: 灰度测试车场-永策C端

@@ -247,8 +247,8 @@ export const useEnvironmentStore = defineStore('environment', () => {
   }
 
   // 从后端API加载配置
-  const loadConfig = async () => {
-    if (configLoaded.value || configLoading.value) {
+  const loadConfig = async (forceReload: boolean = false) => {
+    if (!forceReload && (configLoaded.value || configLoading.value)) {
       return
     }
     
