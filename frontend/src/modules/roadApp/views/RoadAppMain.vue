@@ -79,14 +79,17 @@
     <el-row :gutter="20">
       <el-col :span="24">
         <!-- 车辆管理和查费管理 - 同一行平分宽度 -->
-        <el-row :gutter="20" style="margin-bottom: 20px;">
+        <el-row :gutter="20" class="equal-height-row" style="margin-bottom: 20px;">
           <el-col :span="12">
             <VehicleManagement />
           </el-col>
           <el-col :span="12">
-            <FeeInquiry />
+            <FeeInquiry @query-result="handleQueryResult" />
           </el-col>
         </el-row>
+
+        <!-- 查询结果展示 - 全宽卡片 -->
+        <VehicleQueryResults :query-result="queryResult" />
 
         <!-- 操作历史 - 移到最下方 -->
         <OperationHistory />
@@ -109,6 +112,7 @@ import { Edit } from '@element-plus/icons-vue'
 import { useRoadEnvironmentStore } from '../stores/environment'
 import VehicleManagement from '../components/VehicleManagement.vue'
 import FeeInquiry from '../components/FeeInquiry.vue'
+import VehicleQueryResults from '../components/VehicleQueryResults.vue'
 import OperationHistory from '../components/OperationHistory.vue'
 import RoadParkingLotEditor from '../components/RoadParkingLotEditor.vue'
 import type { Environment } from '../types'
@@ -126,15 +130,27 @@ const availableLots = computed(() => envStore.availableLots)
 // 车场编辑器状态
 const parkingLotEditorVisible = ref(false)
 
+// 查询结果状态
+const queryResult = ref(null)
+
 // 环境切换
 const handleEnvSwitch = (env: Environment, event: Event) => {
   event.preventDefault()
   envStore.setEnvironment(env)
+  // 切换环境时清空查询结果卡片
+  queryResult.value = null
 }
 
 // 车场切换
 const handleLotChange = (lotId: string) => {
   envStore.setCurrentLotId(lotId)
+  // 切换车场时清空查询结果卡片
+  queryResult.value = null
+}
+
+// 处理查询结果
+const handleQueryResult = (result: any) => {
+  queryResult.value = result
 }
 
 // 车场编辑器相关方法
@@ -291,11 +307,63 @@ onMounted(async () => {
 
 /* 移除旧的布局样式，使用Element Plus的栅格系统 */
 
+/* 等高度卡片布局 */
+.equal-height-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.equal-height-row .el-col {
+  display: flex;
+}
+
+.equal-height-row .el-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.equal-height-row :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.equal-height-row :deep(.vehicle-form-container),
+.equal-height-row :deep(.fee-form-container) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.equal-height-row :deep(.form-buttons-container) {
+  margin-top: auto;
+}
+
+/* 右侧路侧车场管理表单在等高卡片内垂直居中展示主体内容 */
+.equal-height-row :deep(.fee-inquiry .fee-form-container) {
+  justify-content: center;
+}
+
 @media (max-width: 768px) {
   .config-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+  
+  /* 移动端下取消等高度布局 */
+  .equal-height-row {
+    display: block;
+  }
+  
+  .equal-height-row .el-col {
+    display: block;
+  }
+  
+  .equal-height-row .el-card {
+    width: auto;
+    display: block;
   }
 }
 </style>

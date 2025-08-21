@@ -69,6 +69,51 @@
         </div>
       </div>
 
+      <!-- 路段和车位 -->
+      <div class="form-row">
+        <div class="form-item-container">
+          <label class="form-label">路段</label>
+          <div class="form-input-container">
+            <el-select
+              v-model="form.roadCode"
+              placeholder="请选择路段"
+              style="width: 100%"
+              @change="handleRoadChange"
+              :loading="loading.roads"
+              clearable
+            >
+              <el-option
+                v-for="road in roadList"
+                :key="road.roadCode"
+                :label="road.roadName"
+                :value="road.roadCode"
+              />
+            </el-select>
+          </div>
+        </div>
+
+        <div class="form-item-container">
+          <label class="form-label">车位</label>
+          <div class="form-input-container">
+            <el-select
+              v-model="form.parkspaceCode"
+              placeholder="请选择车位"
+              style="width: 100%"
+              :loading="loading.parkspaces"
+              :disabled="!form.roadCode"
+              clearable
+            >
+              <el-option
+                v-for="parkspace in parkspaceList"
+                :key="parkspace.parkspaceCode"
+                :label="parkspace.parkspaceCode"
+                :value="parkspace.parkspaceCode"
+              />
+            </el-select>
+          </div>
+        </div>
+      </div>
+
       <!-- 入场时间 -->
       <div class="form-item-container">
         <label class="form-label">入场时间</label>
@@ -83,7 +128,26 @@
           />
         </div>
       </div>
-      
+
+      <!-- 车位状态展示 -->
+      <div v-if="showParkspaceStatus && currentRoadParkspaces.length > 0" class="parkspace-status-container">
+        <div class="parkspace-status-header">
+          <h4>{{ getCurrentRoadName() }} - 车位状态</h4>
+          <span class="parkspace-count">共 {{ currentRoadParkspaces.length }} 个车位</span>
+        </div>
+        <div class="parkspace-grid">
+          <div
+            v-for="parkspace in currentRoadParkspaces"
+            :key="parkspace.parkspaceCode"
+            class="parkspace-card"
+            :class="{ 'occupied': isParkspaceOccupied(parkspace.parkspacePlate) }"
+          >
+            <div class="parkspace-code">{{ parkspace.parkspaceCode }}</div>
+            <div class="parkspace-plate">{{ formatParkspacePlate(parkspace.parkspacePlate) }}</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 操作按钮 -->
       <div class="form-buttons-container">
         <div class="action-buttons">
@@ -109,13 +173,13 @@
           </el-button>
           <el-button
             type="info"
-            @click="handleQueryOnPark"
-            :loading="loading.query"
+            @click="handleToggleParkspaceStatus"
             size="default"
             class="action-button"
-            :disabled="!envStore.currentLotId"
+            :disabled="!form.roadCode"
+            :loading="loading.parkspaceStatus"
           >
-            车辆在场情况查询
+            {{ showParkspaceStatus ? '隐藏路段车位状态' : '查看路段车位状态' }}
           </el-button>
         </div>
       </div>
@@ -124,7 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoadEnvironmentStore } from '../stores/environment'
 import { useRoadHistoryStore } from '../stores/history'
@@ -139,7 +203,8 @@ import {
 } from '../types'
 import type {
   RoadCarInOutRequest,
-  RoadCarOnParkRequest
+  RoadInfo,
+  ParkspaceInfo
 } from '../types'
 
 const envStore = useRoadEnvironmentStore()
@@ -151,22 +216,365 @@ const form = reactive({
   plateColor: '蓝',
   carType: CarType.SMALL,
   source: VehicleSource.POS,
-  inTime: ''
+  inTime: '',
+  roadCode: '',
+  parkspaceCode: ''
 })
 
 // 加载状态
 const loading = reactive({
   carIn: false,
   carOut: false,
-  query: false
+  roads: false,
+  parkspaces: false,
+  parkspaceStatus: false
 })
 
+// 路段和车位数据
+const roadList = ref<RoadInfo[]>([])
+const parkspaceList = ref<ParkspaceInfo[]>([])
+
+// 车位状态展示相关
+const showParkspaceStatus = ref(false)
+const currentRoadParkspaces = ref<ParkspaceInfo[]>([])
+
 // 常量已通过导入可直接在模板中使用
+
+// 加载路段列表
+const loadRoadList = async () => {
+  if (!envStore.currentLotId) return
+
+  loading.roads = true
+  const startTime = Date.now()
+  // 加载前先清空旧数据，避免显示上一个环境/车场的路段
+  roadList.value = []
+
+  try {
+    const params = { lot_id: envStore.currentLotId }
+    const result = await roadVehicleApi.roadList(envStore.currentLotId)
+    const handleResult = ResponseHandler.handleResponse(result, '', '加载路段列表失败', false)
+
+    // 记录操作历史
+    historyStore.addHistory({
+      operation: '加载路段列表',
+      params,
+      result: handleResult.historyResult,
+      message: handleResult.historyMessage,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    if (handleResult.success && Array.isArray(result.data)) {
+      roadList.value = result.data
+
+      // 设置默认路段
+      setDefaultRoad()
+    } else {
+      // 如果响应失败，显示错误消息
+      ElMessage.error(handleResult.toastMessage)
+    }
+  } catch (error: any) {
+    // 网络错误或其他异常的处理
+    const errorResult = ResponseHandler.handleError(error, '加载路段列表失败')
+
+    // 记录网络错误历史
+    historyStore.addHistory({
+      operation: '加载路段列表',
+      params: { lot_id: envStore.currentLotId },
+      result: errorResult.historyResult,
+      message: errorResult.message,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    console.error('加载路段列表失败:', error)
+  } finally {
+    loading.roads = false
+  }
+}
+
+// 加载车位列表
+const loadParkspaceList = async (roadCode: string, autoShowStatus: boolean = false) => {
+  if (!roadCode || !envStore.currentLotId) return
+
+  loading.parkspaces = true
+  const startTime = Date.now()
+  // 加载前先清空旧数据，避免显示上一个路段/车场的车位
+  parkspaceList.value = []
+
+  try {
+    const params = { road_code: roadCode, lot_id: envStore.currentLotId }
+    const result = await roadVehicleApi.parkspacePage(roadCode, envStore.currentLotId)
+    const handleResult = ResponseHandler.handleResponse(result, '', '加载车位列表失败', false)
+
+    // 记录操作历史
+    historyStore.addHistory({
+      operation: '加载车位列表',
+      params,
+      result: handleResult.historyResult,
+      message: handleResult.historyMessage,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    if (handleResult.success && Array.isArray(result.data)) {
+      parkspaceList.value = result.data
+
+      // 设置默认车位
+      setDefaultParkspace()
+
+      // 如果需要自动显示车位状态
+      if (autoShowStatus) {
+        // 设置车位状态数据并显示
+        currentRoadParkspaces.value = result.data
+        showParkspaceStatus.value = true
+        
+        // 记录自动显示车位状态的操作历史
+        historyStore.addHistory({
+          operation: '自动显示车位状态',
+          params: { road_code: roadCode, lot_id: envStore.currentLotId },
+          result: 'success',
+          message: `自动显示路段 ${roadCode} 的车位状态`,
+          duration: 0,
+          env: envStore.currentEnv,
+          lotId: envStore.currentLotId,
+          lotName: envStore.getCurrentLotName()
+        })
+      }
+    } else {
+      // 如果响应失败，显示错误消息
+      ElMessage.error(handleResult.toastMessage)
+    }
+  } catch (error: any) {
+    // 网络错误或其他异常的处理
+    const errorResult = ResponseHandler.handleError(error, '加载车位列表失败')
+    // 请求失败时确保清空数据
+    parkspaceList.value = []
+
+    // 记录网络错误历史
+    historyStore.addHistory({
+      operation: '加载车位列表',
+      params: { road_code: roadCode, lot_id: envStore.currentLotId },
+      result: errorResult.historyResult,
+      message: errorResult.message,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    console.error('加载车位列表失败:', error)
+  } finally {
+    loading.parkspaces = false
+  }
+}
+
+// 设置默认路段
+const setDefaultRoad = async () => {
+  if (roadList.value.length === 0) return
+
+  let defaultRoadName = ''
+  if (envStore.currentEnv === 'test') {
+    defaultRoadName = 'dwb永策路段1'
+  } else if (envStore.currentEnv === 'prod') {
+    defaultRoadName = '守一路段'
+  }
+
+  if (defaultRoadName) {
+    const defaultRoad = roadList.value.find(road => road.roadName === defaultRoadName)
+    if (defaultRoad) {
+      form.roadCode = defaultRoad.roadCode
+      // 加载对应的车位列表并自动显示车位状态
+      await loadParkspaceList(defaultRoad.roadCode, true)
+    }
+  }
+}
+
+// 设置默认车位
+const setDefaultParkspace = () => {
+  if (parkspaceList.value.length === 0) return
+
+  let defaultParkspaceCode = ''
+  if (envStore.currentEnv === 'test') {
+    defaultParkspaceCode = 'GH1'
+  } else if (envStore.currentEnv === 'prod') {
+    defaultParkspaceCode = '1'
+  }
+
+  if (defaultParkspaceCode) {
+    const defaultParkspace = parkspaceList.value.find(parkspace => parkspace.parkspaceCode === defaultParkspaceCode)
+    if (defaultParkspace) {
+      form.parkspaceCode = defaultParkspace.parkspaceCode
+    }
+  }
+}
+
+// 路段变化处理
+const handleRoadChange = (roadCode: string) => {
+  form.parkspaceCode = '' // 清空车位选择
+  parkspaceList.value = [] // 清空车位列表
+
+  // 隐藏车位状态显示
+  showParkspaceStatus.value = false
+  currentRoadParkspaces.value = []
+
+  if (roadCode) {
+    loadParkspaceList(roadCode)
+  }
+}
+
+// 获取当前路段名称
+const getCurrentRoadName = (): string => {
+  const currentRoad = roadList.value.find(road => road.roadCode === form.roadCode)
+  return currentRoad?.roadName || '未知路段'
+}
+
+// 判断车位是否被占用
+const isParkspaceOccupied = (parkspacePlate?: string): boolean => {
+  return parkspacePlate ? !parkspacePlate.includes('无车') : false
+}
+
+// 格式化车位车牌信息
+const formatParkspacePlate = (parkspacePlate?: string): string => {
+  if (!parkspacePlate) return '无车'
+
+  if (parkspacePlate.includes('无车')) {
+    return '无车'
+  } else if (parkspacePlate.includes('有车(') && parkspacePlate.includes(')')) {
+    // 提取括号内的车牌号
+    const match = parkspacePlate.match(/有车\((.+?)\)/)
+    return match ? match[1] : '有车'
+  }
+
+  return parkspacePlate
+}
+
+// 切换车位状态显示
+const handleToggleParkspaceStatus = async () => {
+  if (!form.roadCode) {
+    ElMessage.warning('请先选择路段才能查看车位状态')
+    return
+  }
+
+  if (!showParkspaceStatus.value) {
+    // 显示车位状态，需要重新加载车位数据以获取最新状态
+    loading.parkspaceStatus = true
+    try {
+      await loadParkspaceListForStatus(form.roadCode)
+      showParkspaceStatus.value = true
+    } finally {
+      loading.parkspaceStatus = false
+    }
+  } else {
+    // 隐藏车位状态，直接切换状态
+    showParkspaceStatus.value = false
+  }
+}
+
+// 刷新车位状态（静默刷新，不显示loading）
+const refreshParkspaceStatus = async () => {
+  if (!form.roadCode || !envStore.currentLotId) return
+
+  try {
+    const result = await roadVehicleApi.parkspacePage(form.roadCode, envStore.currentLotId)
+    const handleResult = ResponseHandler.handleResponse(result, '', '', false)
+
+    if (handleResult.success && Array.isArray(result.data)) {
+      currentRoadParkspaces.value = result.data
+    }
+  } catch (error) {
+    // 静默处理错误，不影响用户操作
+    console.error('刷新车位状态失败:', error)
+  }
+}
+
+// 专门为车位状态展示加载车位数据
+const loadParkspaceListForStatus = async (roadCode: string) => {
+  if (!roadCode || !envStore.currentLotId) return
+
+  const startTime = Date.now()
+
+  try {
+    const params = { road_code: roadCode, lot_id: envStore.currentLotId }
+    const result = await roadVehicleApi.parkspacePage(roadCode, envStore.currentLotId)
+    const handleResult = ResponseHandler.handleResponse(result, '', '加载车位状态失败', false)
+
+    // 记录操作历史
+    historyStore.addHistory({
+      operation: '查看车位状态',
+      params,
+      result: handleResult.historyResult,
+      message: handleResult.historyMessage,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    if (handleResult.success && Array.isArray(result.data)) {
+      currentRoadParkspaces.value = result.data
+    } else {
+      ElMessage.error(handleResult.toastMessage)
+      throw new Error(handleResult.toastMessage)
+    }
+  } catch (error: any) {
+    const errorResult = ResponseHandler.handleError(error, '加载车位状态失败')
+
+    historyStore.addHistory({
+      operation: '查看车位状态',
+      params: { road_code: roadCode, lot_id: envStore.currentLotId },
+      result: errorResult.historyResult,
+      message: errorResult.message,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    console.error('加载车位状态失败:', error)
+    throw error // 重新抛出错误，让上层处理
+  }
+}
+
+// 监听环境和车场变化
+watch(() => envStore.currentLotId, (newLotId) => {
+  if (newLotId) {
+    // 重置表单中的路段和车位
+    form.roadCode = ''
+    form.parkspaceCode = ''
+    // 清空下拉数据，避免残留上一个环境/车场的数据
+    roadList.value = []
+    parkspaceList.value = []
+
+    // 重置车位状态显示
+    showParkspaceStatus.value = false
+    currentRoadParkspaces.value = []
+
+    // 加载新的路段列表
+    loadRoadList()
+  }
+}, { immediate: true })
+
+
 
 // 路侧车辆入场
 const handleCarIn = async () => {
   if (!envStore.currentLotId) {
     ElMessage.warning('请先选择路侧车场')
+    return
+  }
+  if (!form.roadCode) {
+    ElMessage.warning('请先选择路段')
+    return
+  }
+  if (!form.parkspaceCode) {
+    ElMessage.warning('请先选择车位')
     return
   }
 
@@ -180,7 +588,9 @@ const handleCarIn = async () => {
       car_type: form.carType,
       plate_color: form.plateColor,
       in_time: form.inTime || new Date().toLocaleString('sv-SE').replace('T', ' '),
-      source: form.source
+      source: form.source,
+      road_code: form.roadCode,
+      park_space_code: form.parkspaceCode
     }
 
     const result = await roadVehicleApi.carIn(params)
@@ -213,7 +623,9 @@ const handleCarIn = async () => {
         car_no: form.carNo,
         car_type: form.carType,
         plate_color: form.plateColor,
-        source: form.source
+        source: form.source,
+        road_code: form.roadCode,
+        park_space_code: form.parkspaceCode
       },
       result: errorResult.historyResult,
       message: errorResult.message,
@@ -224,6 +636,18 @@ const handleCarIn = async () => {
     })
   } finally {
     loading.carIn = false
+
+    // 如果选择了路段，自动显示并刷新车位状态（无论成功失败还是异常）
+    if (form.roadCode) {
+      if (!showParkspaceStatus.value) {
+        // 如果没有显示车位状态，先显示再刷新
+        showParkspaceStatus.value = true
+        await loadParkspaceListForStatus(form.roadCode)
+      } else {
+        // 如果已经显示，直接刷新
+        await refreshParkspaceStatus()
+      }
+    }
   }
 }
 
@@ -231,6 +655,14 @@ const handleCarIn = async () => {
 const handleCarOut = async () => {
   if (!envStore.currentLotId) {
     ElMessage.warning('请先选择路侧车场')
+    return
+  }
+  if (!form.roadCode) {
+    ElMessage.warning('请先选择路段')
+    return
+  }
+  if (!form.parkspaceCode) {
+    ElMessage.warning('请先选择车位')
     return
   }
 
@@ -244,7 +676,9 @@ const handleCarOut = async () => {
       car_type: form.carType,
       plate_color: form.plateColor,
       in_time: form.inTime || new Date().toLocaleString('sv-SE').replace('T', ' '),
-      source: form.source
+      source: form.source,
+      road_code: form.roadCode,
+      park_space_code: form.parkspaceCode
     }
 
     const result = await roadVehicleApi.carOut(params)
@@ -277,7 +711,9 @@ const handleCarOut = async () => {
         car_no: form.carNo,
         car_type: form.carType,
         plate_color: form.plateColor,
-        source: form.source
+        source: form.source,
+        road_code: form.roadCode,
+        park_space_code: form.parkspaceCode
       },
       result: errorResult.historyResult,
       message: errorResult.message,
@@ -288,78 +724,18 @@ const handleCarOut = async () => {
     })
   } finally {
     loading.carOut = false
-  }
-}
 
-// 查询路侧在场车辆
-const handleQueryOnPark = async () => {
-  if (!envStore.currentLotId) {
-    ElMessage.warning('请先选择路侧车场')
-    return
-  }
-
-  if (!form.carNo.trim()) {
-    ElMessage.warning('请输入车牌号')
-    return
-  }
-
-  loading.query = true
-  const startTime = Date.now()
-
-  try {
-    const params: RoadCarOnParkRequest = {
-      lot_id: envStore.currentLotId,
-      car_no: form.carNo
+    // 如果选择了路段，自动显示并刷新车位状态（无论成功失败还是异常）
+    if (form.roadCode) {
+      if (!showParkspaceStatus.value) {
+        // 如果没有显示车位状态，先显示再刷新
+        showParkspaceStatus.value = true
+        await loadParkspaceListForStatus(form.roadCode)
+      } else {
+        // 如果已经显示，直接刷新
+        await refreshParkspaceStatus()
+      }
     }
-
-    const result = await roadVehicleApi.carOnPark(params)
-
-    // 处理查询结果，优先使用业务逻辑消息
-    let customSuccessMessage = ''
-    if (ResponseHandler.isSuccess(result)) {
-      const vehicles = result.data?.vos || []
-      customSuccessMessage = vehicles.length > 0
-        ? `查询到 ${vehicles.length} 辆路侧在场车辆`
-        : '未查询到路侧在场车辆'
-    }
-
-    // 使用统一的响应处理，但优先使用自定义消息
-    const handleResult = ResponseHandler.handleResponse(
-      result,
-      customSuccessMessage || '查询路侧在场车辆成功',
-      '查询路侧在场车辆失败'
-    )
-
-    // 记录操作历史（无论成功失败都记录一次）
-    historyStore.addHistory({
-      operation: '查询路侧在场车辆',
-      params,
-      result: handleResult.historyResult,
-      message: handleResult.historyMessage,
-      duration: Date.now() - startTime,
-      env: envStore.currentEnv,
-      lotId: envStore.currentLotId,
-      lotName: envStore.getCurrentLotName()
-    })
-
-    // 如果失败，不需要再抛出异常，因为已经处理过了
-  } catch (error: any) {
-    // 网络错误或其他异常的处理
-    const errorResult = ResponseHandler.handleError(error, '查询路侧在场车辆失败')
-
-    // 记录网络错误历史
-    historyStore.addHistory({
-      operation: '查询路侧在场车辆',
-      params: { car_no: form.carNo },
-      result: errorResult.historyResult,
-      message: errorResult.message,
-      duration: Date.now() - startTime,
-      env: envStore.currentEnv,
-      lotId: envStore.currentLotId,
-      lotName: envStore.getCurrentLotName()
-    })
-  } finally {
-    loading.query = false
   }
 }
 </script>
@@ -407,20 +783,28 @@ const handleQueryOnPark = async () => {
 
 .form-item-container {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
 }
 
 .form-label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: #606266;
+  margin: 0;
+  white-space: nowrap;
+  min-width: 4rem;
+  text-align: right;
 }
 
 .form-input-container {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .form-buttons-container {
@@ -438,6 +822,94 @@ const handleQueryOnPark = async () => {
 
 .action-button {
   min-width: 120px;
+}
+
+/* 车位状态展示样式 */
+.parkspace-status-container {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.parkspace-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.parkspace-status-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.parkspace-count {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.parkspace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
+}
+
+.parkspace-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0.25rem;
+  background-color: #ffffff;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+  min-height: 60px;
+  justify-content: center;
+}
+
+.parkspace-card.occupied {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.parkspace-card:not(.occupied) {
+  border-color: #22c55e;
+  background-color: #f0fdf4;
+}
+
+.parkspace-code {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+.parkspace-plate {
+  font-size: 0.725rem; /* 放大车牌字体 */
+  color: #6b7280;
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-all;
+  margin-top: 4px;           /* 与上方车位编码留出间距 */
+  padding-top: 4px;          /* 与分隔线留出内边距 */
+  border-top: 1px solid rgba(0, 0, 0, 0.08); /* 细分隔线：上方为车位、下方为车牌 */
+}
+
+.parkspace-card.occupied .parkspace-plate {
+  color: #dc2626;
+  font-weight: 500;
+  border-top-color: rgba(220, 38, 38, 0.25); /* 占用时让分隔线与主题颜色协调 */
+}
+
+.parkspace-card:not(.occupied) .parkspace-plate {
+  color: #16a34a;
+  border-top-color: rgba(22, 163, 74, 0.25); /* 空闲时分隔线与主题颜色协调 */
 }
 
 @media (max-width: 768px) {

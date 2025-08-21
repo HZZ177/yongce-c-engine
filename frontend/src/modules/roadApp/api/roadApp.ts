@@ -3,7 +3,8 @@ import type {
   ApiResponse,
   RoadCarInOutRequest,
   RoadCarOnParkRequest,
-  RoadFeeInquiryRequest
+  RoadFeeInquiryRequest,
+  RoadPresentCarInfoRequest
 } from '../types'
 
 // 创建axios实例
@@ -68,6 +69,24 @@ export const roadVehicleApi = {
   // 查询路侧在场车辆
   carOnPark: async (params: RoadCarOnParkRequest): Promise<ApiResponse> => {
     const response = await api.get('/carOnPark', { params })
+    return response.data
+  },
+
+  // 查询路侧在场车信息（新接口）
+  presentCarInfo: async (params: RoadPresentCarInfoRequest): Promise<ApiResponse> => {
+    const response = await api.get('/presentCarInfo', { params })
+    return response.data
+  },
+
+  // 获取路段列表
+  roadList: async (lotId: string): Promise<ApiResponse> => {
+    const response = await api.get('/roadList', { params: { lot_id: lotId } })
+    return response.data
+  },
+
+  // 获取车位列表
+  parkspacePage: async (roadCode: string, lotId: string): Promise<ApiResponse> => {
+    const response = await api.get('/parkspacePage', { params: { road_code: roadCode, lot_id: lotId } })
     return response.data
   }
 }

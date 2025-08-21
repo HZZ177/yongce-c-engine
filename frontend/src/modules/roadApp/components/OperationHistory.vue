@@ -50,7 +50,22 @@
       <el-table-column prop="message" label="消息" min-width="300">
         <template #default="{ row }">
           <div class="message-cell">
-            <span class="message-text">{{ row.message }}</span>
+            <el-tooltip
+              placement="top"
+              :disabled="!isMessageTruncated(row.message)"
+              :show-after="500"
+              popper-class="message-tooltip"
+              effect="dark"
+            >
+              <template #content>
+                <div class="tooltip-content">
+                  {{ row.message }}
+                </div>
+              </template>
+              <span class="message-text" :class="{ 'truncated': isMessageTruncated(row.message) }">
+                {{ row.message }}
+              </span>
+            </el-tooltip>
           </div>
         </template>
       </el-table-column>
@@ -101,6 +116,29 @@ const handleClearHistory = async () => {
 const handleRemoveHistory = (id: string) => {
   historyStore.removeHistoryItem(id)
   ElMessage.success('删除成功')
+}
+
+// 判断消息是否需要截断（超过5行）
+const isMessageTruncated = (message: string): boolean => {
+  if (!message) return false
+
+  // 考虑换行符的情况
+  const lines = message.split('\n')
+  if (lines.length > 5) return true
+
+  // 考虑长文本自动换行的情况
+  // 估算每行大约能容纳的字符数（根据容器宽度和字体大小）
+  const charsPerLine = 35 // 大约每行35个字符（考虑中英文混合）
+  const maxLines = 5
+
+  // 计算所有行的总长度是否会超过5行
+  let totalLines = 0
+  for (const line of lines) {
+    totalLines += Math.ceil(line.length / charsPerLine) || 1
+    if (totalLines > maxLines) return true
+  }
+
+  return false
 }
 </script>
 
@@ -222,6 +260,53 @@ const handleRemoveHistory = (id: string) => {
   word-break: break-all;
   line-height: 1.4;
   white-space: pre-wrap;
+  display: block;
+  width: 100%;
+}
+
+.message-text.truncated {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  cursor: help;
+}
+
+/* 悬浮提示内容样式 */
+.tooltip-content {
+  max-width: 700px;
+  max-height: 250px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+  font-size: 13px;
+}
+
+/* 自定义悬浮提示样式 */
+:deep(.message-tooltip) {
+  max-width: 720px !important;
+}
+
+/* 美化滚动条 */
+.tooltip-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.tooltip-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.tooltip-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.tooltip-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 /* 表格表头居中 */

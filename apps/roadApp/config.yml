@@ -1,19 +1,35 @@
-api_endpoints:
+road_api_endpoints:
   swagger_base_url:
     test: http://roadtest.keytop.cn:30033
     prod: http://roadpark.keytop.cn:19900
   car_in: /third/commonApi/parking/in
   car_out: /third/commonApi/parking/out
-  fee_query: ""
-
+  present_car_info: /third/commonApi/parking/presentCars
+  present_car_list: /third/commonApi/parking/presentCarList
+yongce_pro_endpoints:
+  domain:
+    test: https://yongce-pro-test.keytop.cn
+    prod: https://yongce-zshjcs.keytop.cn
+  top_group_id:
+    test: 92b9cc14ba134fc4a0fe74cbf4ef5af2
+    prod: 38f188755bca474b896bb7e390589c40
+  road_list: /road-park/road/roadList
+  tollman_list: /road-park/parking/tollman/list
+  workstation_list: /road-park/parking/workstation/list
+  present_car_list: /road-park/parking/presentCar/page
+  parkspace_page: /road-park/parkspace/page
 parking_lots:
   test:
   - id: '4799'
-    road_lot_id: 'LC5110000001'
+    road_lot_id: LC5110000001
     name: 路侧测试车场-永策
     description: 路侧测试车场-永策
+  - id: '123'
+    road_lot_id: '321'
+    name: '12324'
+    description: ''
   prod:
   - id: '280030147'
-    road_lot_id: 'LC5101000004'
+    road_lot_id: LC5101000004
     name: 灰度测试车场-永策C端
     description: 灰度测试车场-永策C端

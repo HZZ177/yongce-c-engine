@@ -33,13 +33,25 @@ class RoadConfig:
         else:
             return  []
 
-    def get_swagger_base_url(self, env: str) -> str:
-        """获取Swagger基础URL"""
-        return self.config.get("api_endpoints", {}).get("swagger_base_url", {}).get(env, "")
+    def get_road_swagger_base_url(self, env: str) -> str:
+        """获取路侧Swagger基础URL"""
+        return self.config.get("road_api_endpoints", {}).get("swagger_base_url", {}).get(env, "")
 
     def get_api_endpoint(self, endpoint_name: str) -> str:
-        """获取具体API接口路径（通用，不分环境）"""
-        return self.config.get("api_endpoints", {}).get(endpoint_name, "")
+        """获取路侧具体API接口路径（通用，不分环境）"""
+        return self.config.get("road_api_endpoints", {}).get(endpoint_name, "")
+
+    def get_yongce_pro_domain(self) -> dict:
+        """获取永策Pro域名"""
+        return self.config.get("yongce_pro_endpoints", {}).get("domain", {})
+
+    def get_yongce_pro_top_group_id(self) -> dict:
+        """获取永策Pro的top_group_id"""
+        return self.config.get("yongce_pro_endpoints", {}).get("top_group_id", {})
+
+    def get_yongce_pro_endpoint(self, endpoint_name: str) -> str:
+        """获取永策具体API接口路径（通用，不分环境）"""
+        return self.config.get("yongce_pro_endpoints", {}).get(endpoint_name, "")
 
     def get_parking_lots(self, env: str = None) -> Dict:
         """获取车场配置列表"""
@@ -171,4 +183,4 @@ class RoadConfig:
 
 if __name__ == "__main__":
     config = RoadConfig()
-    print(config.get_parking_road_lot_id("1"))
+    print(config.get_yongce_pro_domain())

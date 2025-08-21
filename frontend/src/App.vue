@@ -342,6 +342,15 @@ html, body {
   border-color: #3b82f6;
 }
 
+/* 调整ElMessage弹窗位置，避免覆盖顶部导航栏 */
+.el-message {
+  top: 100px !important; /* 导航栏高度 + 间距 */
+}
+
+.el-message--top {
+  top: 100px !important;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .header-container {
@@ -361,6 +370,15 @@ html, body {
   
   .app-main {
     padding: 1rem;
+  }
+  
+  /* 移动端下调整ElMessage位置 */
+  .el-message {
+    top: 120px !important; /* 移动端导航栏更高，需要更多间距 */
+  }
+  
+  .el-message--top {
+    top: 120px !important;
   }
 }
 </style> 

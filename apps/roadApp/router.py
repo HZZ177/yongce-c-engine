@@ -7,8 +7,7 @@ from core.logger import logger
 from .custom_enum import RoadLotIdEnum
 from .schema import (
     RoadCarInOutRequest,
-    RoadCarOnParkRequest,
-    RoadFeeInquiryRequest
+    RoadPresentCarInfoRequest
 )
 from .service import RoadService
 from .config import RoadConfig
@@ -31,6 +30,8 @@ config = RoadConfig()
 @road_dsp_router.get("/carIn", description="路侧车辆入场接口", summary="路侧车辆入场接口")
 async def car_in(
     lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境4799，灰度280030147"),
+    road_code: str = Query("", description="路段id"),
+    park_space_code: str = Query("", description="车位编号"),
     car_no: str = Query("", description="车牌号"),
     car_type: int = Query(default=0, description="车辆类型 0:小型车 1:中型车 2:大型车 3:新能源车 4:特殊车辆 5:非机动车 6:摩托车 7:三轮车 8:新能源货车"),
     plate_color: str = Query(default="蓝", description="车牌颜色，中文"),
@@ -41,6 +42,8 @@ async def car_in(
     try:
         request = RoadCarInOutRequest(
             lot_id=lot_id,
+            road_code=road_code,
+            park_space_code=park_space_code,
             car_no=car_no,
             car_type=car_type,
             plate_color=plate_color,
@@ -57,6 +60,8 @@ async def car_in(
 @road_dsp_router.get("/carOut", description="路侧车辆出场接口", summary="路侧车辆出场接口")
 async def car_out(
     lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境4799，灰度280030147"),
+    road_code: str = Query("", description="路段id"),
+    park_space_code: str = Query("", description="车位编号"),
     car_no: str = Query("", description="车牌号"),
     car_type: int = Query(default=0, description="车辆类型 0:小型车 1:中型车 2:大型车 3:新能源车 4:特殊车辆 5:非机动车 6:摩托车 7:三轮车 8:新能源货车"),
     plate_color: str = Query(default="蓝", description="车牌颜色，中文"),
@@ -67,6 +72,8 @@ async def car_out(
     try:
         request = RoadCarInOutRequest(
             lot_id=lot_id,
+            road_code=road_code,
+            park_space_code=park_space_code,
             car_no=car_no,
             car_type=car_type,
             plate_color=plate_color,
@@ -79,35 +86,42 @@ async def car_out(
         logger.error(f"车辆【{car_no}】出场失败: {e}")
         return error_response(data=f"车辆出场失败，报错信息：{e}")
 
-@road_dsp_router.get("/carOnPark", description="查询路侧在场车辆接口", summary="查询路侧在场车辆接口")
-async def get_on_park(
-    lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境280025536，灰度280030478"),
-    car_no: str = Query(..., description="车牌号"),
-    start_time: str = Query(default=datetime.now().strftime("%Y-%m-%d 00:00:00"), description="开始时间，非必填，不填默认当天00:00:00"),
-    end_time: str = Query(default=datetime.now().strftime("%Y-%m-%d 23:59:59"), description="结束时间，非必填，不填默认当天23:59:59")
-):
-    """查询路侧在场车辆"""
-    pass
 
-@road_dsp_router.get("/feeInquiry", description="路侧查费接口", summary="路侧查费接口")
-async def fee_inquiry(
-    car_no: str = Query(..., description="车牌号"),
-    lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境280025536，灰度280030478")
+@road_dsp_router.get("/presentCarInfo", description="路侧在场车辆查询接口", summary="路侧在场车辆查询接口")
+async def get_present_car_info(
+    car_no: str = Query("", description="车牌号"),
+    lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境4799，灰度280030147"),
+    car_type: str = Query("", description="车辆类型"),
+    parkspace_code: str = Query("", description="车位编号"),
+    plate_color: str = Query(default="", description="车辆颜色(1:白 2:黑 3:蓝 4:黄 5:绿)"),
+    road_code: str = Query("", description="路段编号"),
 ):
-    """路侧查费接口"""
-    pass
+    """路侧在场车辆查询接口"""
+    try:
+        data = RoadPresentCarInfoRequest(
+            car_no=car_no,
+            lot_id=lot_id,
+            road_code=road_code,
+            parkspace_code=parkspace_code,
+            plate_color=plate_color,
+            car_type=car_type
+        )
+        response = await road_service.road_present_car_info(data)
+        return success_response(data=response)
+    except Exception as e:
+        return error_response(data=f"查询路侧在场车失败，报错信息：{e}")
 
 @road_dsp_router.get("/config", description="获取路侧配置信息接口", summary="获取路侧配置信息接口")
 async def get_config():
     """获取路侧配置信息接口"""
     try:
-        # 获取完整的配置信息
+        # 获取配置信息
         parking_lots = config.get_parking_lots()
-        api_endpoints = config.config.get("api_endpoints", {})
+        road_api_endpoints = config.config.get("road_api_endpoints", {})
 
         config_data = {
             "parking_lots": parking_lots,
-            "api_endpoints": api_endpoints
+            "api_endpoints": road_api_endpoints
         }
         return success_response(data=config_data)
     except Exception as e:
@@ -175,5 +189,31 @@ async def get_parking_lot(lot_id: str):
         logger.error(f"获取路侧车场配置失败: {e}")
         return error_response(message="获取路侧车场配置失败")
 
+@road_dsp_router.get("/roadList", description="获取路侧车场路段列表", summary="获取路侧车场路段列表")
+async def get_road_list(
+    lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境4799，灰度280030147")
+):
+    """获取路侧车场路段列表"""
+    try:
+        res = await road_service.get_road_list(lot_id)
+        data = res.get("data")
+        return success_response(data=data)
+    except Exception as e:
+        logger.error(f"获取路侧车场路段列表失败: {e}")
+        return error_response(data=f"获取路侧车场路段列表失败，报错{e}")
 
-
+@road_dsp_router.get("/parkspacePage", description="分页查询路侧车位", summary="分页查询路侧车位")
+async def query_park_space_page(
+    lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境4799，灰度280030147"),
+    road_code: str = Query(..., description="车位ID"),
+    page_num: int = Query(1, description="页码，默认第一页"),
+    page_size: int = Query(20, description="每页数量，默认20")
+):
+    """获取路侧车场路段列表"""
+    try:
+        res = await road_service.query_park_space_page(lot_id, road_code, page_num, page_size)
+        data = res.get("data").get("records")
+        return success_response(data=data)
+    except Exception as e:
+        logger.error(f"获取路侧车场路段列表失败: {e}")
+        return error_response(data=f"获取路侧车场路段列表失败，报错{e}")

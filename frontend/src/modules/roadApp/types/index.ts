@@ -16,13 +16,17 @@ export type {
 export type {
   RoadVehicleInfo,
   RoadCarInOutRequest,
-  RoadCarOnParkRequest
+  RoadCarOnParkRequest,
+  RoadPresentCarInfoRequest,
+  RoadInfo,
+  ParkspaceInfo
 } from './vehicle'
 
 export {
   CarType,
   VehicleSource,
   PLATE_COLORS,
+  PLATE_COLOR_CODES,
   CAR_TYPE_OPTIONS,
   VEHICLE_SOURCE_OPTIONS
 } from './vehicle'
