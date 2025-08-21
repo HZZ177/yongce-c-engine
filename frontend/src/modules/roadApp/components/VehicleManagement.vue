@@ -80,6 +80,7 @@
               style="width: 100%"
               @change="handleRoadChange"
               :loading="loading.roads"
+              filterable
               clearable
             >
               <el-option
@@ -101,6 +102,7 @@
               style="width: 100%"
               :loading="loading.parkspaces"
               :disabled="!form.roadCode"
+              filterable
               clearable
             >
               <el-option
@@ -130,7 +132,11 @@
       </div>
 
       <!-- 车位状态展示 -->
-      <div v-if="showParkspaceStatus && currentRoadParkspaces.length > 0" class="parkspace-status-container">
+      <div
+        v-if="showParkspaceStatus && (currentRoadParkspaces.length > 0 || loading.parkspaceStatus)"
+        class="parkspace-status-container"
+        v-loading="loading.parkspaceStatus"
+      >
         <div class="parkspace-status-header">
           <h4>{{ getCurrentRoadName() }} - 车位状态</h4>
           <span class="parkspace-count">共 {{ currentRoadParkspaces.length }} 个车位</span>
@@ -305,6 +311,12 @@ const loadParkspaceList = async (roadCode: string, autoShowStatus: boolean = fal
   const startTime = Date.now()
   // 加载前先清空旧数据，避免显示上一个路段/车场的车位
   parkspaceList.value = []
+  if (autoShowStatus) {
+    // 立刻展开状态卡并显示加载中，避免等待数据返回
+    showParkspaceStatus.value = true
+    currentRoadParkspaces.value = []
+    loading.parkspaceStatus = true
+  }
 
   try {
     const params = { road_code: roadCode, lot_id: envStore.currentLotId }
@@ -329,33 +341,33 @@ const loadParkspaceList = async (roadCode: string, autoShowStatus: boolean = fal
       // 设置默认车位
       setDefaultParkspace()
 
-      // 如果需要自动显示车位状态
+      // 如果需要自动显示车位状态，加载状态数据后结束loading
       if (autoShowStatus) {
-        // 设置车位状态数据并显示
-        currentRoadParkspaces.value = result.data
-        showParkspaceStatus.value = true
-        
-        // 记录自动显示车位状态的操作历史
-        historyStore.addHistory({
-          operation: '自动显示车位状态',
-          params: { road_code: roadCode, lot_id: envStore.currentLotId },
-          result: 'success',
-          message: `自动显示路段 ${roadCode} 的车位状态`,
-          duration: 0,
-          env: envStore.currentEnv,
-          lotId: envStore.currentLotId,
-          lotName: envStore.getCurrentLotName()
-        })
+        try {
+          const statusRes = await roadVehicleApi.parkspacePage(roadCode, envStore.currentLotId)
+          const statusHandled = ResponseHandler.handleResponse(statusRes, '', '', false)
+          if (statusHandled.success && Array.isArray(statusRes.data)) {
+            currentRoadParkspaces.value = statusRes.data
+          }
+        } finally {
+          loading.parkspaceStatus = false
+        }
       }
     } else {
       // 如果响应失败，显示错误消息
       ElMessage.error(handleResult.toastMessage)
+      if (autoShowStatus) {
+        loading.parkspaceStatus = false
+      }
     }
   } catch (error: any) {
     // 网络错误或其他异常的处理
     const errorResult = ResponseHandler.handleError(error, '加载车位列表失败')
     // 请求失败时确保清空数据
     parkspaceList.value = []
+    if (autoShowStatus) {
+      loading.parkspaceStatus = false
+    }
 
     // 记录网络错误历史
     historyStore.addHistory({
@@ -420,12 +432,23 @@ const handleRoadChange = (roadCode: string) => {
   form.parkspaceCode = '' // 清空车位选择
   parkspaceList.value = [] // 清空车位列表
 
-  // 隐藏车位状态显示
-  showParkspaceStatus.value = false
-  currentRoadParkspaces.value = []
-
   if (roadCode) {
+    // 无论是否展示状态，都需要刷新可选车位列表
     loadParkspaceList(roadCode)
+
+    // 若当前处于“展开车位状态”，则在切换路段时刷新状态数据；
+    // 若当前为收起状态，则保持不动作
+    if (showParkspaceStatus.value) {
+      loading.parkspaceStatus = true
+      loadParkspaceListForStatus(roadCode)
+        .finally(() => {
+          loading.parkspaceStatus = false
+        })
+    }
+  } else {
+    // 清空路段（点X），直接收起车位状态
+    showParkspaceStatus.value = false
+    currentRoadParkspaces.value = []
   }
 }
 
@@ -896,20 +919,38 @@ const handleCarOut = async () => {
   text-align: center;
   line-height: 1.2;
   word-break: break-all;
-  margin-top: 4px;           /* 与上方车位编码留出间距 */
-  padding-top: 4px;          /* 与分隔线留出内边距 */
-  border-top: 1px solid rgba(0, 0, 0, 0.08); /* 细分隔线：上方为车位、下方为车牌 */
+  margin-top: 2px;           /* 让分隔线更靠近上方“车位” */
+  padding-top: 2px;
+  position: relative;        /* 供伪元素定位使用 */
+  width: 100%;               /* 占据整张卡片的宽度，分隔线长度固定为卡片宽度 */
+  align-self: stretch;       /* 在flex容器中拉伸到整宽 */
+}
+
+/* 分隔线：略微加长（穿过卡片内边距），并上移一点 */
+.parkspace-plate::before {
+  content: '';
+  position: absolute;
+  top: -2px;                 /* 相对上移一点 */
+  left: 4px;                 /* 固定长度：相对卡片左右各留出内边距 */
+  right: 4px;
+  height: 1px;
+  background-color: rgba(0, 0, 0, 0.12);
+  border-radius: 1px;
 }
 
 .parkspace-card.occupied .parkspace-plate {
   color: #dc2626;
   font-weight: 500;
-  border-top-color: rgba(220, 38, 38, 0.25); /* 占用时让分隔线与主题颜色协调 */
+}
+.parkspace-card.occupied .parkspace-plate::before {
+  background-color: rgba(220, 38, 38, 0.25); /* 占用时分隔线颜色 */
 }
 
 .parkspace-card:not(.occupied) .parkspace-plate {
   color: #16a34a;
-  border-top-color: rgba(22, 163, 74, 0.25); /* 空闲时分隔线与主题颜色协调 */
+}
+.parkspace-card:not(.occupied) .parkspace-plate::before {
+  background-color: rgba(22, 163, 74, 0.25); /* 空闲时分隔线颜色 */
 }
 
 @media (max-width: 768px) {

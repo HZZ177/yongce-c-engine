@@ -24,10 +24,6 @@ parking_lots:
     road_lot_id: LC5110000001
     name: 路侧测试车场-永策
     description: 路侧测试车场-永策
-  - id: '123'
-    road_lot_id: '321'
-    name: '12324'
-    description: ''
   prod:
   - id: '280030147'
     road_lot_id: LC5101000004

@@ -54,6 +54,7 @@
             style="width: 100%"
             @change="handleRoadChange"
             :loading="loading.roads"
+            filterable
             clearable
           >
             <el-option
@@ -75,6 +76,7 @@
             style="width: 100%"
             :loading="loading.parkspaces"
             :disabled="!form.roadCode"
+            filterable
             clearable
           >
             <el-option
