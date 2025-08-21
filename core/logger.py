@@ -30,7 +30,7 @@ logger.configure(
         },
         {
             "sink": f"{log_path}/yongce_pro_c_engine_{{time:YYYY-MM-DD_HH}}.log",  # 指定日志输出到文件
-            "level": "INFO",  # 日志级别
+            "level": "DEBUG",  # 日志级别
             "format": "{time:YYYY-MM-DD HH:mm:ss.SSSS} | {module}:{line} | {level} | {message}",  # 日志格式
             "rotation": "1 hour",  # 每小时自动分割日志
             "retention": "7 days",  # 保留最近 7 天的日志文件
