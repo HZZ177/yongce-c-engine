@@ -4,6 +4,7 @@ import threading
 import struct
 import traceback
 from datetime import datetime
+import zlib
 from core.logger import logger
 import os
 import math
@@ -100,7 +101,8 @@ class BaseProtocol:
                         data_int = np.int16(data_int + temp)
                     i += 1
             except Exception as msg:
-                raise RuntimeError(logger.error(traceback.format_exc()))
+                logger.error(traceback.format_exc())
+                raise
             data_bytes2 = data_bytes2 + data
 
             # 校验码字节
@@ -113,7 +115,8 @@ class BaseProtocol:
             body_send_bytes = bytes([0xfb]) + body_bytes + bytes([0xfe])
             return body_send_bytes
         except Exception as msg:
-            raise Exception(logger.error(traceback.format_exc()))
+            logger.error(traceback.format_exc())
+            raise
 
     def send_com_command(self, command_name: str, data: bytes) -> bytes:
         return self.send_command(command_name, 0, 1, 0, data)
@@ -232,7 +235,8 @@ class BaseProtocol:
                     with self.write_lock:
                         self.RECV_LIST.append(command_name)
         except Exception as cmd_ex:
-            raise RuntimeError(logger.error('%s:%s' % (self.client_ip, traceback.format_exc())))
+            logger.error('%s:%s' % (self.client_ip, traceback.format_exc()))
+            raise
 
     def _receive_data_to_tuple(self, recivedata: bytes):
         """
@@ -259,7 +263,8 @@ class BaseProtocol:
                     tuple_list.append(tuple_to_list)
             return tuple_list
         except Exception as ex_msg:
-            raise RuntimeError(logger.error(traceback.format_exc()))
+            logger.error(traceback.format_exc())
+            raise
 
 class DeviceProtocol(BaseProtocol):
     def __init__(self, server_ip: str, server_port: int, client_ip: str, client_port: int = 0):
@@ -398,7 +403,8 @@ class BusinessProtocol(BaseProtocol):
 
             return True
         except Exception as ex_img_msg:
-            raise Exception(logger.error(traceback.format_exc()))
+            logger.error(traceback.format_exc())
+            raise
 
     def _send_command_img(self, i_serial: str, i_plate_no: str, i_car_style: int, i_is_etc: int, 
                          i_etc_no: str, i_recog_enable: int, i_color: int, i_data_type: int, 
@@ -456,7 +462,20 @@ class BusinessProtocol(BaseProtocol):
                 if len(i_serial) > 0:
                     etc_no = bytes(12)
                     img_data = img_data + etc_no
-                    img_data = img_data + struct.pack('!i', int(i_serial))
+                    # 将序列号安全封装为4字节（优先按有符号32位，越界则降级为无符号32位）
+                    try:
+                        serial_int = int(i_serial)
+                        try:
+                            img_data = img_data + struct.pack('!i', serial_int)
+                        except struct.error:
+                            safe_serial = serial_int & 0xFFFFFFFF
+                            img_data = img_data + struct.pack('!I', safe_serial)
+                            logger.warning(f"序列号{i_serial}超出32位有符号范围，按无符号32位处理为:{safe_serial}")
+                    except Exception:
+                        # 非纯数字序列号，使用CRC32派生4字节无符号序列号
+                        safe_serial = zlib.crc32(bytes(str(i_serial), encoding='utf-8')) & 0xFFFFFFFF
+                        img_data = img_data + struct.pack('!I', safe_serial)
+                        logger.warning(f"序列号{i_serial}非数字，按CRC32无符号32位处理为:{safe_serial}")
                     img_data = img_data + etc_no
                 else:
                     etc_no = bytes(28)
@@ -513,64 +532,5 @@ class BusinessProtocol(BaseProtocol):
                 img_list.append(temp_data_bytes)
             return img_list
         except Exception as msg:
-            raise RuntimeError(logger.error(traceback.format_exc()))
-
-class PaymentProtocol(BaseProtocol):
-    def __init__(self, server_ip: str, server_port: int, client_ip: str, client_port: int = 0):
-        super().__init__(server_ip, server_port, client_ip, client_port)
-
-    def pay_order(self, order_no: str, pay_money: int, car_no: str) -> bool:
-        """支付订单"""
-        try:
-            if not self.connect():
-                return False
-                
-            logger.debug(f"支付订单：订单号={order_no}, 金额={pay_money}, 车牌号={car_no}")
-
-            # 组装支付数据
-            data = (
-                bytes([0x00]) +  # 固定头
-                bytes(order_no, encoding="utf8") +  # 订单号
-                struct.pack('!i', pay_money) +  # 支付金额
-                bytes(car_no, encoding="utf8")  # 车牌号
-            )
-
-            # 发送支付命令
-            command = self.send_command('P', 0, 1, 0, data)
-            with self.send_lock:
-                self.sock.send(command)
-                
-            self.close()
-            return True
-        except Exception as e:
-            logger.error(f"支付订单失败: {traceback.format_exc()}")
-            self.close()
-            return False
-
-    def refund_order(self, order_no: str, refund_money: int, car_no: str) -> bool:
-        """退款订单"""
-        try:
-            if not self.connect():
-                return False
-                
-            logger.debug(f"退款订单：订单号={order_no}, 金额={refund_money}, 车牌号={car_no}")
-
-            # 组装退款数据
-            data = (
-                bytes([0x01]) +  # 固定头，退款用01
-                bytes(order_no, encoding="utf8") +  # 订单号
-                struct.pack('!i', refund_money) +  # 退款金额
-                bytes(car_no, encoding="utf8")  # 车牌号
-            )
-
-            # 发送退款命令
-            command = self.send_command('P', 0, 1, 0, data)
-            with self.send_lock:
-                self.sock.send(command)
-                
-            self.close()
-            return True
-        except Exception as e:
-            logger.error(f"退款订单失败: {traceback.format_exc()}")
-            self.close()
-            return False
+            logger.error(traceback.format_exc())
+            raise

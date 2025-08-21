@@ -98,6 +98,11 @@ async def car_in(
         # 入车
         res = await car_service.car_in(request)
 
+        # 如果是无牌车，跳过在场验证，直接返回结果
+        if car_no == "":
+            logger.info("无牌车，跳过在场车验证，直接返回结果")
+            return success_response(data=f"无牌车压地感成功，凭据号：{i_serial}")
+
         # 查询在场车验证，重试三次防止有入车延时
         retry = 3
 
@@ -142,6 +147,11 @@ async def car_out(
 
         # 出车
         res = await car_service.car_out(request)
+
+        # 如果是无牌车，跳过在场验证，直接返回结果
+        if car_no == "":
+            logger.info("无牌车，跳过在场车验证，直接返回结果")
+            return success_response(data=f"无牌车压地感成功，凭据号：{i_serial}")
 
         # 查询在场车验证，重试三次防止有出车延时
         retry = 3

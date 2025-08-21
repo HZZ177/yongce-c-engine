@@ -4,7 +4,7 @@ import json
 import requests
 from typing import List, Dict
 from apps.closeApp.config import Config
-from apps.closeApp.protocol import DeviceProtocol, PaymentProtocol, BusinessProtocol
+from apps.closeApp.protocol import DeviceProtocol, BusinessProtocol
 from apps.closeApp.schema import DeviceOnOffRequest, DeviceOnOffResponse, BaseResponse, PaymentResponse, PaymentRequest, \
     RefundRequest, RefundResponse, CarInOutResponse, CarInOutRequest
 import random
@@ -375,16 +375,22 @@ class CarService(BaseService):
                 logger.error("设备IP不能为空")
                 raise Exception("设备IP不能为空")
 
-            # 先使用DeviceProtocol进行设备上线
-            device_protocol = DeviceProtocol(
-                server_ip=request.server_ip or "192.168.0.183",
-                server_port=5001,
-                client_ip=device_ip
-            )
-
-            # 进行设备上线
-            if not device_protocol.device_on():
-                return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
+            # 优先复用已存在的设备连接；若无或已断开再进行上线
+            device_protocol = None
+            if device_ip in self.device_service.devices:
+                candidate = self.device_service.devices[device_ip]
+                if candidate and candidate.is_connected():
+                    device_protocol = candidate
+            if device_protocol is None:
+                device_protocol = DeviceProtocol(
+                    server_ip=request.server_ip or "192.168.0.183",
+                    server_port=5001,
+                    client_ip=device_ip
+                )
+                if not device_protocol.device_on():
+                    return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
+                # 记录（或覆盖）到设备管理，便于后续复用
+                self.device_service.devices[device_ip] = device_protocol
 
             # 发送车辆入场信息
             business_protocol = BusinessProtocol(
@@ -393,8 +399,9 @@ class CarService(BaseService):
                 client_ip=device_ip
             )
 
-            # 重用已建立的连接
+            # 重用已建立的连接与同一把发送锁，避免并发写 socket
             business_protocol.sock = device_protocol.sock
+            business_protocol.send_lock = device_protocol.send_lock
 
             if business_protocol.send_img(
                     i_serial=str(request.i_serial or random.randint(0, 999999999)),
@@ -423,9 +430,9 @@ class CarService(BaseService):
                 data=f"【{request.car_no}】入场失败: {str(e)}",
                 resultCode=500
             )
-        finally:
-            # 关闭连接
-            device_protocol.device_off()
+        # finally:
+        #     # 关闭连接
+        #     device_protocol.device_off()
 
     async def car_out(self, request: CarInOutRequest) -> CarInOutResponse:
         """车辆出场"""
@@ -445,16 +452,22 @@ class CarService(BaseService):
                 logger.error("设备IP不能为空")
                 raise Exception("设备IP不能为空")
 
-            # 先使用DeviceProtocol进行设备上线
-            device_protocol = DeviceProtocol(
-                server_ip=request.server_ip or "192.168.0.183",
-                server_port=5001,
-                client_ip=device_ip
-            )
-
-            # 进行设备上线
-            if not device_protocol.device_on():
-                return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
+            # 优先复用已存在的设备连接；若无或已断开再进行上线
+            device_protocol = None
+            if device_ip in self.device_service.devices:
+                candidate = self.device_service.devices[device_ip]
+                if candidate and candidate.is_connected():
+                    device_protocol = candidate
+            if device_protocol is None:
+                device_protocol = DeviceProtocol(
+                    server_ip=request.server_ip or "192.168.0.183",
+                    server_port=5001,
+                    client_ip=device_ip
+                )
+                if not device_protocol.device_on():
+                    return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
+                # 记录（或覆盖）到设备管理，便于后续复用
+                self.device_service.devices[device_ip] = device_protocol
 
             # 发送车辆出场信息
             business_protocol = BusinessProtocol(
@@ -463,8 +476,9 @@ class CarService(BaseService):
                 client_ip=device_ip
             )
 
-            # 重用已建立的连接
+            # 重用已建立的连接与同一把发送锁，避免并发写 socket
             business_protocol.sock = device_protocol.sock
+            business_protocol.send_lock = device_protocol.send_lock
 
             if business_protocol.send_img(
                     i_serial=str(request.i_serial or random.randint(0, 999999999)),
@@ -493,9 +507,9 @@ class CarService(BaseService):
                 data=f"【{request.car_no}】出场失败: {str(e)}",
                 resultCode=500
             )
-        finally:
-            # 关闭连接
-            device_protocol.device_off()
+        # finally:
+        #     # 关闭连接
+        #     device_protocol.device_off()
 
 
 

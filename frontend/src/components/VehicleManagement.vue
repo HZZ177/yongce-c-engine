@@ -251,6 +251,7 @@ const handleCarIn = async () => {
   
   loading.carIn = true
   const startTime = Date.now()
+  const isUnlicensed = !form.carNo || form.carNo.trim() === ''
   
   try {
     const params: any = {
@@ -271,7 +272,7 @@ const handleCarIn = async () => {
     const duration = Date.now() - startTime
     
     if (result.resultCode === 200) {
-      ElMessage.success('车辆入场成功')
+      ElMessage.success(isUnlicensed ? '发送成功' : '车辆入场成功')
       
       // 记录操作历史
       historyStore.addHistory({
@@ -288,7 +289,7 @@ const handleCarIn = async () => {
     const duration = Date.now() - startTime
     const errorMsg = error.response?.data?.detail || error.message || '入场失败'
     
-    ElMessage.error(errorMsg)
+    ElMessage.error(isUnlicensed ? '发送失败' : errorMsg)
     
     // 记录操作历史
     historyStore.addHistory({
@@ -312,6 +313,7 @@ const handleCarOut = async () => {
   
   loading.carOut = true
   const startTime = Date.now()
+  const isUnlicensed = !form.carNo || form.carNo.trim() === ''
   
   try {
     const params: any = {
@@ -332,7 +334,7 @@ const handleCarOut = async () => {
     const duration = Date.now() - startTime
     
     if (result.resultCode === 200) {
-      ElMessage.success('车辆出场成功')
+      ElMessage.success(isUnlicensed ? '发送成功' : '车辆出场成功')
       
       // 记录操作历史
       historyStore.addHistory({
@@ -349,7 +351,7 @@ const handleCarOut = async () => {
     const duration = Date.now() - startTime
     const errorMsg = error.response?.data?.detail || error.message || '出场失败'
     
-    ElMessage.error(errorMsg)
+    ElMessage.error(isUnlicensed ? '发送失败' : errorMsg)
     
     // 记录操作历史
     historyStore.addHistory({
