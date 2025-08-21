@@ -158,7 +158,7 @@ cd yongce-c-engine
 pip install -r requirements.txt
 
 # 启动后端服务
-python main.py
+python main_c.py
 ```
 
 后端服务将在 `http://localhost:17771` 启动
