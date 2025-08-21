@@ -12,7 +12,10 @@
 - **操作历史**: 记录所有操作的历史记录
 
 ### 路侧车场管理
-- 预留页面，功能开发中
+- 车辆入/出场（/roadApp/carIn、/roadApp/carOut）
+- 在场车辆查询（/roadApp/presentCarInfo）
+- 路段列表（/roadApp/roadList）
+- 车位分页（/roadApp/parkspacePage）
 
 ## 技术栈
 
@@ -29,19 +32,31 @@
 ```
 frontend/
 ├── src/
-│   ├── api/              # API接口封装
-│   ├── components/       # 通用组件
-│   ├── router/          # 路由配置
-│   ├── stores/          # 状态管理
-│   ├── types/           # TypeScript类型定义
-│   ├── views/           # 页面组件
-│   ├── App.vue          # 根组件
-│   └── main.ts          # 应用入口
-├── public/              # 静态资源
-├── index.html           # HTML模板
-├── package.json         # 项目配置
-├── vite.config.ts       # Vite配置
-└── tsconfig.json        # TypeScript配置
+│   ├── api/               # API接口封装（顶层与模块内）
+│   ├── components/        # 通用组件
+│   ├── router/            # 路由配置（/close, /road）
+│   ├── stores/            # 顶层状态（可选）
+│   ├── types/             # TypeScript类型定义
+│   ├── modules/
+│   │   ├── closeApp/      # 封闭车场模块
+│   │   │   ├── api/
+│   │   │   ├── components/
+│   │   │   ├── stores/
+│   │   │   ├── types/
+│   │   │   └── views/
+│   │   └── roadApp/       # 路侧车场模块
+│   │       ├── api/
+│   │       ├── components/
+│   │       ├── stores/
+│   │       ├── types/
+│   │       └── views/
+│   ├── views/             # 顶层页面（CloseApp.vue、RoadApp.vue）
+│   ├── App.vue            # 根组件
+│   └── main.ts            # 应用入口
+├── index.html             # HTML模板
+├── package.json           # 项目配置
+├── vite.config.ts         # Vite配置
+└── tsconfig.json          # TypeScript配置
 ```
 
 ## 开发环境
@@ -100,8 +115,8 @@ npm run preview
 
 ## 配置说明
 
-### 环境配置
-在 `src/stores/environment.ts` 中配置不同环境的车场信息：
+### 环境配置（封闭车场）
+在 `src/modules/closeApp/stores/environment.ts` 中配置或通过 UI 维护不同环境的车场信息：
 
 ```typescript
 const lotConfigs = {
@@ -126,13 +141,18 @@ const lotConfigs = {
 }
 ```
 
-### API配置
-在 `vite.config.ts` 中配置API代理：
+### API代理
+在 `vite.config.ts` 中已配置 API 代理：
 
 ```typescript
 server: {
   proxy: {
     '/closeApp': {
+      target: 'http://localhost:17771',
+      changeOrigin: true
+    }
+    },
+    '/roadApp': {
       target: 'http://localhost:17771',
       changeOrigin: true
     }
@@ -180,6 +200,12 @@ server {
     }
     
     location /closeApp {
+        proxy_pass http://localhost:17771;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /roadApp {
         proxy_pass http://localhost:17771;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

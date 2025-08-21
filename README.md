@@ -41,15 +41,16 @@
 - **环境配置**：多环境切换、车场选择、服务器配置
 - **操作历史**：完整的操作记录和历史追踪
 
-### 路侧车场管理（规划中）
-- **设备监控**：路侧设备状态管理
-- **车位管理**：路侧车位占用监控
-- **收费管理**：路侧停车收费功能
+### 路侧车场管理（已实现）
+- **车辆管理**：车辆入场/出场、在场车辆查询
+- **路段与车位**：查询路段列表与车位分页
+- **配置管理**：获取/添加/更新/删除路侧车场配置
 
 ### 系统功能
-- **实时监控**：设备状态实时轮询更新
+- **请求日志中间件**：`RequestLoggingMiddleware` 统一记录请求/响应，默认过滤 `/closeApp/deviceStatus` 轮询
+- **设备心跳检测**：`/closeApp/deviceStatus` 基于心跳 TTL 精确判断在线状态
 - **二维码管理**：通道二维码生成和管理
-- **日志记录**：详细的操作日志和错误追踪
+- **配置热加载**：支持通过接口维护车场配置并落盘，`/closeApp/config/reload` 重新加载
 - **响应式设计**：支持多种屏幕尺寸的自适应布局
 
 ## 🛠️ 技术栈
@@ -184,7 +185,7 @@ npm run dev
 
 ### 开发环境配置
 
-#### 后端配置
+#### 后端配置（封闭车场）
 在 `apps/closeApp/config.yml` 中配置相关参数：
 ```yaml
 # 服务器配置
@@ -201,6 +202,33 @@ lots:
     - id: "280030477"
       name: "成都灰度环境封闭测试车场"
 ```
+
+封闭车场运行时生效的服务和参数以代码内枚举与配置为准：
+- `LotIdEnum`: 测试 `280025535`，灰度 `280030477`
+- `ServerIpEnum`: 测试 `192.168.0.183`，灰度 `192.168.0.236`
+
+支持通过接口管理封闭车场相关配置（会保存到 `config.yml` 且自动重载）：
+- 获取配置：`GET /closeApp/config`
+- 重新加载：`POST /closeApp/config/reload`
+- 新增车场：`POST /closeApp/config/parking-lot?env=test|prod`
+- 更新车场：`PUT /closeApp/config/parking-lot/{lot_id}`
+- 删除车场：`DELETE /closeApp/config/parking-lot/{lot_id}`
+- 获取/设置通道名：`GET /closeApp/config/channel-names/{lot_id}`、`PUT /closeApp/config/channel-name`
+
+#### 后端配置（路侧车场）
+在 `apps/roadApp/config.yml` 中配置路侧 API 入口、车场列表等：
+- `road_api_endpoints.swagger_base_url.test|prod`
+- `road_api_endpoints.car_in|car_out|present_car_info`
+- `yongce_pro_endpoints.domain.test|prod`、`top_group_id.test|prod`、`road_list`、`parkspace_page`
+- `parking_lots.test|prod`: 包含 `id`、`name`、`road_lot_id`
+
+路侧配置同样支持接口管理：
+- 获取配置：`GET /roadApp/config`
+- 新增/更新/删除/查询单个：
+  - `POST /roadApp/config/parking-lot?env=test|prod`
+  - `PUT /roadApp/config/parking-lot/{lot_id}`
+  - `DELETE /roadApp/config/parking-lot/{lot_id}`
+  - `GET /roadApp/config/parking-lot/{lot_id}`
 
 #### 前端配置
 前端配置通过环境变量和本地存储管理，支持：
@@ -270,22 +298,22 @@ await deviceApi.deviceOn({
 #### 设备管理接口
 ```http
 # 设备上线
-GET /closeApp/deviceOn?device_list=192.168.24.114&server_ip=192.168.24.114
+GET /closeApp/deviceOn?device_list=192.168.0.115,192.168.0.116&server_ip=192.168.0.183
 
 # 设备下线
-GET /closeApp/deviceOff?device_list=192.168.24.114&server_ip=192.168.24.114
+GET /closeApp/deviceOff?device_list=192.168.0.115,192.168.0.116&server_ip=192.168.0.183
 
-# 设备状态查询
-GET /closeApp/deviceStatus?device_ips=192.168.24.114&ttl_seconds=30
+# 设备状态查询（基于心跳TTL，默认12秒）
+GET /closeApp/deviceStatus?device_ips=192.168.0.115,192.168.0.116&ttl_seconds=12
 ```
 
 #### 车辆管理接口
 ```http
-# 车辆入场
-GET /closeApp/carIn?car_no=川A12345&lot_id=280025535&server_ip=192.168.24.114
+# 车辆入场（默认 i_open_type=1 相机直接放行）
+GET /closeApp/carIn?car_no=川A12345&lot_id=280025535&server_ip=192.168.0.183&i_open_type=1
 
-# 车辆出场
-GET /closeApp/carOut?car_no=川A12345&lot_id=280025535&server_ip=192.168.24.114
+# 车辆出场（默认 i_open_type=0 压地感）
+GET /closeApp/carOut?car_no=川A12345&lot_id=280025535&server_ip=192.168.0.183&i_open_type=0
 
 # 查询在场车辆
 GET /closeApp/carOnPark?lot_id=280025535&car_no=川A12345
@@ -305,8 +333,8 @@ GET /closeApp/payInfo?car_no=川A12345&lot_id=280025535
 # 查询节点状态
 GET /closeApp/nodeStatus?lot_id=280025535&cloud_kt_token=xxx
 
-# 变更节点状态
-GET /closeApp/changeNodeStatus?lot_id=280025535&node_ids=1&status=1
+# 变更节点状态（0:关闭长抬，1:打开长抬）
+GET /closeApp/changeNodeStatus?lot_id=280025535&node_ids=1&status=1&cloud_kt_token=xxx
 ```
 
 ### API响应格式
@@ -339,26 +367,52 @@ GET /closeApp/changeNodeStatus?lot_id=280025535&node_ids=1&status=1
 ```
 modules/
 ├── closeApp/              # 封闭车场模块
-│   ├── api/              # API接口层
-│   │   └── index.ts      # 统一的API接口
-│   ├── components/       # 业务组件
-│   │   ├── VehicleManagement.vue    # 车辆管理
-│   │   ├── PaymentManagement.vue    # 支付管理
-│   │   ├── OperationHistory.vue     # 操作历史
-│   │   └── QrCodeDialog.vue         # 二维码弹窗
-│   ├── stores/           # 状态管理
-│   │   ├── environment.ts           # 环境配置
-│   │   └── history.ts               # 历史记录
-│   ├── types/            # 类型定义
-│   │   └── index.ts      # 模块类型
-│   └── views/            # 页面组件
-│       └── index.vue     # 主页面
-├── roadApp/              # 路侧车场模块（预留）
-└── shared/               # 共享模块
-    ├── components/       # 共享组件
-    │   └── StandardTooltip.vue
-    └── types/            # 共享类型
-        └── index.ts
+│   ├── api/               # 接口层（/closeApp/*）
+│   ├── components/        # 业务组件（车辆/设备/支付/操作历史/二维码）
+│   ├── stores/            # 状态管理（环境、历史等）
+│   ├── types/             # 类型定义
+│   └── views/             # 页面组件（CloseAppMain.vue）
+├── roadApp/               # 路侧车场模块
+│   ├── api/               # 接口层（/roadApp/*）
+│   ├── components/        # 业务组件（车辆、路段、车位查询等）
+│   ├── stores/            # 状态管理
+│   ├── types/             # 类型定义
+│   └── views/             # 页面组件（RoadAppMain.vue）
+└── shared/                # 共享模块
+    ├── components/        # 共享组件（如 StandardTooltip）
+    ├── types/             # 共享类型
+    └── utils/             # 工具与统一响应处理
+```
+
+前端开发服务器代理（Vite）已为两大模块分别配置：
+```ts
+// frontend/vite.config.ts
+server: {
+  proxy: {
+    '/closeApp': { target: 'http://localhost:17771', changeOrigin: true },
+    '/roadApp':  { target: 'http://localhost:17771', changeOrigin: true }
+  }
+}
+```
+
+路由结构：`/close`（封闭车场）、`/road`（路侧车场），首页重定向至 `/close`。
+
+### 路侧车场API
+```http
+# 车辆入场
+GET /roadApp/carIn?lot_id=4799&road_code=R001&park_space_code=S001&car_no=川A12345&car_type=0&plate_color=蓝&in_time=2025-01-01%2012:00:00&source=0
+
+# 车辆出场
+GET /roadApp/carOut?lot_id=4799&road_code=R001&park_space_code=S001&car_no=川A12345&car_type=0&plate_color=蓝&in_time=2025-01-01%2012:00:00&source=0
+
+# 在场车辆
+GET /roadApp/presentCarInfo?lot_id=4799&car_no=川A12345&road_code=R001&parkspace_code=S001&plate_color=蓝&car_type=0
+
+# 路段列表
+GET /roadApp/roadList?lot_id=4799
+
+# 车位分页
+GET /roadApp/parkspacePage?lot_id=4799&road_code=R001&page_num=1&page_size=20
 ```
 
 ### 状态管理
