@@ -195,6 +195,14 @@ class DeviceService(BaseService):
 
             for device_ip in request.device_list:
                 try:
+                    # 若已存在并且仍连接，则直接判定上线成功，避免重复建立连接与心跳线程
+                    if device_ip in self.devices:
+                        existing = self.devices[device_ip]
+                        if existing and existing.is_connected():
+                            success_devices.append(device_ip)
+                            continue
+
+                    # 不存在或已断开，重新建立连接
                     protocol = DeviceProtocol(
                         server_ip=request.server_ip,
                         server_port=5001,  # 默认端口
