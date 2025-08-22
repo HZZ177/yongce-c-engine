@@ -4,8 +4,8 @@ ROOT="/opt/test-tool-c"
 cd ${ROOT} && source venv/bin/activate
 
 # (1)杀旧进程（忽略不存在）
-pkill -f "${ROOT}/main\.py" >/dev/null 2>&1 || true
-pkill -f "uvicorn.*main:app" >/dev/null 2>&1 || true
+pkill -f "${ROOT}/main_c\.py" >/dev/null 2>&1 || true
+pkill -f "uvicorn.*main_c:app" >/dev/null 2>&1 || true
 pkill -f "vite" >/dev/null 2>&1 || true
 pkill -f "npm.*run dev" >/dev/null 2>&1 || true
 
@@ -13,7 +13,7 @@ pkill -f "npm.*run dev" >/dev/null 2>&1 || true
 pip install -r "${ROOT}/requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # (3)启动后端
-nohup python -u "${ROOT}/main.py" > "${ROOT}/backend.out" 2>&1 &
+nohup python -u "${ROOT}/main_c.py" > "${ROOT}/backend.out" 2>&1 &
 
 # (4)前端依赖并启动
 cd "${ROOT}/frontend"

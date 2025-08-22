@@ -37,13 +37,13 @@ class BaseProtocol:
             except Exception as e:
                 logger.error(f"无法绑定{self.client_ip}:{self.client_port}: {str(e)}")
                 return False
-            self.sock.settimeout(3000)
+            self.sock.settimeout(5)
             logger.debug(f"尝试连接到 {self.server_ip}:{self.server_port}")
             self.sock.connect((self.server_ip, self.server_port))
             return True
         except Exception as e:
             logger.error(f"连接失败: {traceback.format_exc()}")
-            return False
+            raise Exception(e)
 
     def close(self):
         """关闭连接"""
@@ -302,7 +302,7 @@ class DeviceProtocol(BaseProtocol):
             return True
         except Exception as e:
             logger.error(f"设备上线失败: {traceback.format_exc()}")
-            return False
+            raise Exception(e)
 
     def device_off(self) -> bool:
         """设备下线"""

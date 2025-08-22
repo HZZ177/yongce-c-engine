@@ -32,7 +32,7 @@ app.include_router(road_dsp_router, prefix="/roadApp", tags=["路侧服务"])
 
 if __name__ == "__main__":
     uvicorn.run(
-        app="main:app",
+        app="main_c:app",
         host="0.0.0.0",
         port=17771,
         reload=True,

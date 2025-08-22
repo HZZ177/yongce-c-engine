@@ -53,11 +53,25 @@
         <div class="form-item-container">
           <label class="form-label">序列号</label>
           <div class="form-input-container">
-            <el-input 
-              v-model="form.iSerial" 
-              placeholder="请输入序列号"
-              style="width: 100%"
-            />
+            <div class="serial-input-wrapper">
+              <el-input 
+                v-model="form.iSerial" 
+                placeholder="请输入序列号"
+                style="width: 100%"
+                @input="handleSerialNumberInput"
+              />
+              <el-button
+                type="text"
+                size="small"
+                class="dice-button"
+                title="随机生成序列号"
+                @click="generateRandomSerial"
+              >
+                <el-icon class="dice-icon">
+                  <Refresh />
+                </el-icon>
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -210,7 +224,7 @@ import { ElMessage } from 'element-plus'
 import { useEnvironmentStore } from '../stores/environment'
 import { useHistoryStore } from '../stores/history'
 import { vehicleApi } from '../api/closeApp'
-import { Calendar, Check } from '@element-plus/icons-vue'
+import { Calendar, Check, Refresh } from '@element-plus/icons-vue'
 
 const envStore = useEnvironmentStore()
 const historyStore = useHistoryStore()
@@ -245,9 +259,81 @@ const showDateRangePanel = ref(false)
 const dateIconButtonRef = ref()
 const dateRangePanelRef = ref()
 
+// 序列号输入处理函数
+const handleSerialNumberInput = (value: string) => {
+  // 过滤非数字字符，只保留数字
+  const filteredValue = value.replace(/[^\d]/g, '')
+  
+  // 如果过滤后的值与输入值不同，说明输入了非数字字符
+  if (filteredValue !== value) {
+    form.iSerial = filteredValue
+    ElMessage.warning('序列号只能输入数字')
+    return
+  }
+  
+  // 检查是否为空
+  if (filteredValue === '') {
+    return
+  }
+  
+  // 转换为数字并验证范围
+  const numValue = Number(filteredValue)
+  
+  // 检查是否为负数（理论上不会发生，因为已经过滤了非数字字符）
+  if (numValue < 0) {
+    form.iSerial = '0'
+    ElMessage.warning('序列号不能为负数')
+    return
+  }
+  
+  // 检查是否超过最大值
+  if (numValue > 4294967295) {
+    form.iSerial = '4294967295'
+    ElMessage.warning('序列号不能超过 4,294,967,295')
+    return
+  }
+}
+
+// 生成随机序列号
+const generateRandomSerial = () => {
+  // 生成 0 到 4294967295 之间的随机数
+  const randomNumber = Math.floor(Math.random() * 4294967296)
+  form.iSerial = randomNumber.toString()
+  ElMessage.success('已生成随机序列号')
+}
+
+// 序列号验证函数（用于提交时验证）
+const validateSerialNumber = () => {
+  const value = form.iSerial
+  if (value && value.trim() !== '') {
+    const numValue = Number(value)
+    if (isNaN(numValue)) {
+      ElMessage.warning('序列号必须是数字')
+      form.iSerial = ''
+      return false
+    }
+    if (numValue < 0) {
+      ElMessage.warning('序列号不能为负数')
+      form.iSerial = '0'
+      return false
+    }
+    if (numValue > 4294967295) {
+      ElMessage.warning('序列号不能超过 4,294,967,295')
+      form.iSerial = '4294967295'
+      return false
+    }
+  }
+  return true
+}
+
 // 车辆入场
 const handleCarIn = async () => {
   // 车辆入场不需要车牌号必填，不填视为无牌车
+  
+  // 验证序列号
+  if (form.iSerial && form.iSerial.trim() !== '' && !validateSerialNumber()) {
+    return
+  }
   
   loading.carIn = true
   const startTime = Date.now()
@@ -310,6 +396,11 @@ const handleCarIn = async () => {
 // 车辆出场
 const handleCarOut = async () => {
   // 车辆出场不需要车牌号必填，不填视为无牌车
+
+  // 验证序列号
+  if (form.iSerial && form.iSerial.trim() !== '' && !validateSerialNumber()) {
+    return
+  }
 
   loading.carOut = true
   const startTime = Date.now()
@@ -762,6 +853,40 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
 
 .el-radio__label {
   font-size: 0.875rem;
+}
+
+/* 序列号输入框和骰子按钮样式 */
+.serial-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.dice-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background-color: #f0f2f5;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.dice-button:hover {
+  background-color: #e0e3e7;
+  border-color: #9ca3af;
+}
+
+.dice-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #6b7280;
 }
 
 /* 日期选择相关样式 */

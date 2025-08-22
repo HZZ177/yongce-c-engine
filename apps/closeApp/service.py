@@ -183,72 +183,81 @@ class DeviceService(BaseService):
 
     async def device_on(self, request: DeviceOnOffRequest) -> DeviceOnOffResponse:
         """设备上线"""
-        if not request.device_list:
-            return DeviceOnOffResponse(data="设备列表为空", resultCode=500)
+        try:
+            if not request.device_list:
+                return DeviceOnOffResponse(data="设备列表为空", resultCode=500)
 
-        success_devices = []
-        failed_devices = []
+            success_devices = []
+            failed_devices = []
 
-        for device_ip in request.device_list:
-            try:
-                protocol = DeviceProtocol(
-                    server_ip=request.server_ip,
-                    server_port=5001,  # 默认端口
-                    client_ip=device_ip
-                )
+            for device_ip in request.device_list:
+                try:
+                    protocol = DeviceProtocol(
+                        server_ip=request.server_ip,
+                        server_port=5001,  # 默认端口
+                        client_ip=device_ip
+                    )
 
-                if protocol.device_on(request.device_type):
-                    self.devices[device_ip] = protocol
-                    success_devices.append(device_ip)
-                else:
-                    failed_devices.append(device_ip)
-            except Exception as e:
-                logger.error(f"设备上线失败: {device_ip}，错误信息: {str(e)}")
-                failed_devices.append(device_ip)
-
-        if len(success_devices) == len(request.device_list):
-            return DeviceOnOffResponse(
-                data=f"所有设备上线成功: {', '.join(success_devices)}",
-                resultCode=200
-            )
-        else:
-            return DeviceOnOffResponse(
-                data=f"部分设备上线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
-                resultCode=500
-            )
-
-    async def device_off(self, request: DeviceOnOffRequest) -> DeviceOnOffResponse:
-        """设备下线"""
-        if not request.device_list:
-            return DeviceOnOffResponse(data="设备列表为空", resultCode=500)
-
-        success_devices = []
-        failed_devices = []
-
-        for device_ip in request.device_list:
-            try:
-                if device_ip in self.devices:
-                    protocol = self.devices[device_ip]
-                    if protocol.device_off():
-                        del self.devices[device_ip]
+                    if protocol.device_on(request.device_type):
+                        self.devices[device_ip] = protocol
                         success_devices.append(device_ip)
                     else:
                         failed_devices.append(device_ip)
-                else:
+                except Exception as e:
+                    logger.error(f"设备上线失败: {device_ip}，错误信息: {str(e)}")
                     failed_devices.append(device_ip)
-            except Exception as e:
-                failed_devices.append(device_ip)
+                    raise Exception(f"设备上线失败: {device_ip}")
 
-        if len(success_devices) == len(request.device_list):
-            return DeviceOnOffResponse(
-                data=f"所有设备下线成功: {', '.join(success_devices)}",
-                resultCode=200
-            )
-        else:
-            return DeviceOnOffResponse(
-                data=f"部分设备下线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
-                resultCode=500
-            )
+            if len(success_devices) == len(request.device_list):
+                return DeviceOnOffResponse(
+                    data=f"所有设备上线成功: {', '.join(success_devices)}",
+                    resultCode=200
+                )
+            else:
+                return DeviceOnOffResponse(
+                    data=f"部分设备上线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
+                    resultCode=500
+                )
+        except Exception as e:
+            logger.error(f"设备上线失败: {str(e)}")
+            raise Exception(e)
+
+    async def device_off(self, request: DeviceOnOffRequest) -> DeviceOnOffResponse:
+        """设备下线"""
+        try:
+            if not request.device_list:
+                return DeviceOnOffResponse(data="设备列表为空", resultCode=500)
+
+            success_devices = []
+            failed_devices = []
+
+            for device_ip in request.device_list:
+                try:
+                    if device_ip in self.devices:
+                        protocol = self.devices[device_ip]
+                        if protocol.device_off():
+                            del self.devices[device_ip]
+                            success_devices.append(device_ip)
+                        else:
+                            failed_devices.append(device_ip)
+                    else:
+                        failed_devices.append(device_ip)
+                except Exception as e:
+                    failed_devices.append(device_ip)
+
+            if len(success_devices) == len(request.device_list):
+                return DeviceOnOffResponse(
+                    data=f"所有设备下线成功: {', '.join(success_devices)}",
+                    resultCode=200
+                )
+            else:
+                return DeviceOnOffResponse(
+                    data=f"部分设备下线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
+                    resultCode=500
+                )
+        except Exception as e:
+            logger.error(f"设备下线失败: {str(e)}")
+            raise Exception(f"设备下线失败: {str(e)}")
 
     async def get_all_node_status(self, lot_id, cloud_kt_token):
         """查询通道设备状态"""
@@ -412,7 +421,7 @@ class CarService(BaseService):
                     i_recog_enable=request.recognition,
                     i_color=request.car_color,
                     i_data_type=0,
-                    i_open_type=request.i_open_type,  # 入车默认1：相机直接放行
+                    i_open_type=request.i_open_type,
                     i_cap_time=datetime.now()
             ):
                 return CarInOutResponse(
@@ -425,14 +434,8 @@ class CarService(BaseService):
                     resultCode=500
                 )
         except Exception as e:
-            logger.error(f"车辆入场失败: {traceback.format_exc()}")
-            return CarInOutResponse(
-                data=f"【{request.car_no}】入场失败: {str(e)}",
-                resultCode=500
-            )
-        # finally:
-        #     # 关闭连接
-        #     device_protocol.device_off()
+            logger.error(f"车辆入场失败: {e}")
+            raise Exception(e)
 
     async def car_out(self, request: CarInOutRequest) -> CarInOutResponse:
         """车辆出场"""
@@ -489,7 +492,7 @@ class CarService(BaseService):
                     i_recog_enable=request.recognition,
                     i_color=request.car_color,
                     i_data_type=0,
-                    i_open_type=request.i_open_type, # 出车方式(0:压地感 1:相机直接放行)
+                    i_open_type=request.i_open_type,
                     i_cap_time=datetime.now()
             ):
                 return CarInOutResponse(
@@ -502,16 +505,8 @@ class CarService(BaseService):
                     resultCode=500
                 )
         except Exception as e:
-            logger.error(f"车辆出场失败: {traceback.format_exc()}")
-            return CarInOutResponse(
-                data=f"【{request.car_no}】出场失败: {str(e)}",
-                resultCode=500
-            )
-        # finally:
-        #     # 关闭连接
-        #     device_protocol.device_off()
-
-
+            logger.error(f"车辆出场失败: {e}")
+            raise Exception(e)
 
 
 class PaymentService(BaseService):

@@ -49,7 +49,7 @@ async def device_on(
         return success_response(data=convert_pydantic_model(result))
     except Exception as e:
         logger.error(f"设备上线失败: {e}")
-        return error_response(message=str(e))
+        return error_response(message=f"设备上线失败: {e}")
 
 @close_dsp_router.get("/deviceOff", description="设备下线接口", summary="设备下线接口")
 async def device_off(
