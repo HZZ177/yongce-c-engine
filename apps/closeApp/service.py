@@ -158,7 +158,7 @@ class BaseService:
         data = {
             "lotCode": lot_id,
             "pageNumber": 1,
-            "pageSize": 10
+            "pageSize": 20
         }
 
         if lot_id in self.config.get_test_support_lot_ids():
