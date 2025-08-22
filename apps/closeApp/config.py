@@ -121,6 +121,14 @@ class Config:
             return lot.get("channel_names", {})
         return {}
 
+
+    def get_log_monitor_config(self, lot_id: str) -> Optional[Dict]:
+        """根据车场ID获取日志监控配置"""
+        lot = self.get_parking_lot_by_id(lot_id)
+        if lot:
+            return lot.get("log_monitor")
+        return None
+
     def set_channel_name(self, lot_id: str, device_ip: str, channel_name: str) -> bool:
         """设置指定车场设备的通道名称
 

@@ -1,5 +1,5 @@
 <template>
-  <el-card class="vehicle-management" shadow="hover">
+  <el-card class="vehicle-management" :class="{ 'has-log-monitor': isLogMonitorVisible }" shadow="hover">
     <template #header>
       <div class="card-header">
         <div class="header-content">
@@ -8,21 +8,21 @@
         </div>
       </div>
     </template>
-    
+
     <div class="vehicle-form-container">
       <!-- 车牌号和车辆颜色 -->
       <div class="form-row">
         <div class="form-item-container">
           <label class="form-label">车牌号</label>
           <div class="form-input-container">
-            <el-input 
-              v-model="form.carNo" 
+            <el-input
+              v-model="form.carNo"
               placeholder="不填视为无牌车"
               style="width: 100%"
             />
           </div>
         </div>
-        
+
         <div class="form-item-container">
           <label class="form-label">车辆颜色</label>
           <div class="form-input-container">
@@ -36,26 +36,26 @@
           </div>
         </div>
       </div>
-      
+
       <!-- 识别度和序列号 -->
       <div class="form-row">
         <div class="form-item-container">
           <label class="form-label">识别度</label>
           <div class="form-input-container">
-            <el-input 
-              v-model="form.recognition" 
+            <el-input
+              v-model="form.recognition"
               placeholder="请输入识别度，如：1000"
               style="width: 100%"
             />
           </div>
         </div>
-        
+
         <div class="form-item-container">
           <label class="form-label">序列号</label>
           <div class="form-input-container">
             <div class="serial-input-wrapper">
-              <el-input 
-                v-model="form.iSerial" 
+              <el-input
+                v-model="form.iSerial"
                 placeholder="请输入序列号"
                 style="width: 100%"
                 @input="handleSerialNumberInput"
@@ -75,7 +75,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- 入场模式 -->
       <div class="form-item-container">
         <label class="form-label">入场模式</label>
@@ -86,7 +86,7 @@
           </el-radio-group>
         </div>
       </div>
-      
+
       <!-- 出场模式 -->
       <div class="form-item-container">
         <label class="form-label">出场模式</label>
@@ -97,22 +97,22 @@
           </el-radio-group>
         </div>
       </div>
-      
+
       <!-- 操作按钮 -->
       <div class="form-buttons-container">
-                <div class="action-buttons">
-          <el-button 
-            type="primary" 
-            @click="handleCarIn" 
+        <div class="action-buttons">
+          <el-button
+            type="primary"
+            @click="handleCarIn"
             :loading="loading.carIn"
             size="default"
             class="action-button"
           >
             车辆入场
           </el-button>
-          <el-button 
-            type="success" 
-            @click="handleCarOut" 
+          <el-button
+            type="success"
+            @click="handleCarOut"
             :loading="loading.carOut"
             size="default"
             class="action-button"
@@ -184,7 +184,21 @@
           </div>
         </div>
       </div>
+
+      <!-- 日志监控按钮 -->
+      <div class="log-monitor-button-container">
+        <el-button
+          type="warning"
+          @click="emit('toggle-log-monitor')"
+          size="default"
+          class="action-button"
+        >
+          有疑问 (ﾟﾍﾟ?) 点我实时监看封闭场端日志
+        </el-button>
+      </div>
     </div>
+
+
 
 
 
@@ -219,12 +233,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, defineEmits, defineProps } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useEnvironmentStore } from '../stores/environment'
 import { useHistoryStore } from '../stores/history'
 import { vehicleApi } from '../api/closeApp'
 import { Calendar, Check, Refresh } from '@element-plus/icons-vue'
+
+
+// Define props
+defineProps<{
+  isLogMonitorVisible: boolean;
+}>();
 
 const envStore = useEnvironmentStore()
 const historyStore = useHistoryStore()
@@ -259,33 +279,36 @@ const showDateRangePanel = ref(false)
 const dateIconButtonRef = ref()
 const dateRangePanelRef = ref()
 
+// 定义组件要发出的事件
+const emit = defineEmits(['toggle-log-monitor']);
+
 // 序列号输入处理函数
 const handleSerialNumberInput = (value: string) => {
   // 过滤非数字字符，只保留数字
   const filteredValue = value.replace(/[^\d]/g, '')
-  
+
   // 如果过滤后的值与输入值不同，说明输入了非数字字符
   if (filteredValue !== value) {
     form.iSerial = filteredValue
     ElMessage.warning('序列号只能输入数字')
     return
   }
-  
+
   // 检查是否为空
   if (filteredValue === '') {
     return
   }
-  
+
   // 转换为数字并验证范围
   const numValue = Number(filteredValue)
-  
+
   // 检查是否为负数（理论上不会发生，因为已经过滤了非数字字符）
   if (numValue < 0) {
     form.iSerial = '0'
     ElMessage.warning('序列号不能为负数')
     return
   }
-  
+
   // 检查是否超过最大值
   if (numValue > 4294967295) {
     form.iSerial = '4294967295'
@@ -329,16 +352,16 @@ const validateSerialNumber = () => {
 // 车辆入场
 const handleCarIn = async () => {
   // 车辆入场不需要车牌号必填，不填视为无牌车
-  
+
   // 验证序列号
   if (form.iSerial && form.iSerial.trim() !== '' && !validateSerialNumber()) {
     return
   }
-  
+
   loading.carIn = true
   const startTime = Date.now()
   const isUnlicensed = !form.carNo || form.carNo.trim() === ''
-  
+
   try {
     const params: any = {
       car_no: form.carNo,
@@ -348,18 +371,18 @@ const handleCarIn = async () => {
       car_color: form.carColor,
       recognition: form.recognition
     }
-    
+
     // 只有当序列号有有效值时才包含该字段
     if (form.iSerial && form.iSerial.trim() !== '' && !isNaN(Number(form.iSerial))) {
       params.i_serial = form.iSerial
     }
-    
+
     const result = await vehicleApi.carIn(params)
     const duration = Date.now() - startTime
-    
+
     if (result.resultCode === 200) {
       ElMessage.success(isUnlicensed ? '发送成功' : '车辆入场成功')
-      
+
       // 记录操作历史
       historyStore.addHistory({
         operation: `车辆入场(${form.inOpenType === 0 ? '压地感' : '相机直接开闸放行'})`,
@@ -374,9 +397,9 @@ const handleCarIn = async () => {
   } catch (error: any) {
     const duration = Date.now() - startTime
     const errorMsg = error.response?.data?.detail || error.message || '入场失败'
-    
+
     ElMessage.error(isUnlicensed ? '发送失败' : errorMsg)
-    
+
     // 记录操作历史
     historyStore.addHistory({
       operation: `车辆入场(${form.inOpenType === 0 ? '压地感' : '相机直接开闸放行'})`,
@@ -933,5 +956,33 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
   gap: 0.75rem;
   padding-top: 1rem;
   border-top: 1px solid #f3f4f6;
+}
+
+.log-monitor-button-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+/* 当日志监控可见时的样式 */
+.vehicle-management.has-log-monitor {
+  border-bottom: 2px solid #e6a23c; /* 警告色，与按钮匹配 */
+  position: relative;
+  overflow: visible; /* 确保伪元素可见 */
+  margin-bottom: 32px; /* 增加下边距为箭头留出空间 */
+}
+
+.vehicle-management.has-log-monitor::after {
+  content: '';
+  position: absolute;
+  bottom: 0px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 12px solid #e6a23c;
 }
 </style>

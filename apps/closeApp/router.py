@@ -2,7 +2,7 @@ import time
 import asyncio
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, WebSocket
 
 from core.logger import logger
 from .custom_enum import LotIdEnum, ServerIpEnum
@@ -10,7 +10,7 @@ from .schema import (
     DeviceOnOffRequest,
     CarInOutRequest
 )
-from .service import DeviceService, CarService, PaymentService, BaseService
+from .service import DeviceService, CarService, PaymentService, BaseService, LogMonitorService
 from .config import Config
 from .util import success_response, error_response
 from typing import List, Optional
@@ -27,6 +27,7 @@ base_service = BaseService()
 device_service = DeviceService()
 car_service = CarService(device_service)
 pay_service = PaymentService()
+log_monitor_service = LogMonitorService()
 config = Config()
 
 @close_dsp_router.get("/deviceOn", description="设备上线接口", summary="设备上线接口")
@@ -60,7 +61,7 @@ async def device_off(
     try:
         # 将逗号分隔的字符串转换为列表
         device_ip_list = [ip.strip() for ip in device_list.split(",") if ip.strip()]
-        
+
         # 构造请求对象
         request = DeviceOnOffRequest(
             server_ip=server_ip,
@@ -110,7 +111,7 @@ async def car_in(
             car_on_park = await car_service.get_on_park(lot_id=lot_id, car_no=car_no)
             if car_on_park["data"]["vos"]:  # 直接判断列表是否为空
                 return success_response(data=convert_pydantic_model(res))
-            
+
             if attempt < retry - 1:  # 最后一次不需要等待
                 await asyncio.sleep(1)
                 logger.info(f"执行入车后，在场车未查到车牌号{car_no}，尝试进行第{attempt + 2}次查询")
@@ -407,10 +408,10 @@ async def get_device_status(
     try:
         # 将逗号分隔的字符串转换为列表
         device_ip_list = [ip.strip() for ip in device_ips.split(",") if ip.strip()]
-        
+
         if not device_ip_list:
             return error_response(message="设备IP列表为空")
-        
+
         result = await device_service.get_device_status(device_ip_list, ttl_seconds)
         return success_response(data=result)
     except Exception as e:
@@ -428,4 +429,30 @@ async def get_channel_qr_pic(
         return success_response(data=result)
     except Exception as e:
         logger.error(f"获取通道二维码图片失败: {e}")
-        return error_response(message=f"获取通道二维码图片失败: {str(e)}")
+
+
+# ==================== 日志监控相关接口 ====================
+
+@close_dsp_router.get("/log-files", description="获取日志文件列表", summary="获取日志文件列表")
+async def list_log_files(
+    lot_id: LotIdEnum = Query(..., description="车场ID")
+):
+    """获取指定服务器上的日志文件列表"""
+    try:
+        files = log_monitor_service.list_log_files(lot_id.value)
+        return success_response(data=files)
+    except HTTPException as e:
+        return error_response(message=e.detail)
+    except Exception as e:
+        logger.error(f"获取日志文件列表失败: {e}")
+        return error_response(message=f"获取日志文件列表失败: {str(e)}")
+
+@close_dsp_router.websocket("/ws/log-monitor")
+async def websocket_log_monitor(
+    websocket: WebSocket,
+    lot_id: str = Query(..., description="车场ID"),
+    filename: str = Query(..., description="要监控的日志文件名")
+):
+    """通过WebSocket实时监控日志文件"""
+    await log_monitor_service.stream_log_file(lot_id, filename, websocket)
+

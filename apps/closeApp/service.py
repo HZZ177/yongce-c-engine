@@ -13,6 +13,9 @@ import traceback
 from core.logger import logger
 from fastapi import HTTPException
 
+from fastapi import WebSocket
+from apps.closeApp.ssh_manager import SSHManager
+
 
 class BaseService:
     def __init__(self):
@@ -313,28 +316,28 @@ class DeviceService(BaseService):
 
     async def get_device_status(self, device_ips: List[str], ttl_seconds: int = 12) -> List[Dict]:
         """查询设备真实在线状态
-        
+
         Args:
             device_ips: 设备IP列表
             ttl_seconds: 心跳超时时间（秒），默认12秒
-            
+
         Returns:
             设备状态列表，每个元素包含 {ip, online, updatedAt}
         """
         import time
         current_time = time.time()
         device_status_list = []
-        
+
         for device_ip in device_ips:
             device_ip = device_ip.strip()
             if not device_ip:
                 continue
-                
+
             # 检查设备是否在已连接列表中
             if device_ip in self.devices:
                 protocol = self.devices[device_ip]
                 connected = protocol.is_connected()
-                
+
                 # 检查心跳是否在TTL范围内
                 if connected and protocol.last_heartbeat_at:
                     time_since_heartbeat = current_time - protocol.last_heartbeat_at
@@ -348,13 +351,13 @@ class DeviceService(BaseService):
                 connected = False
                 alive = False
                 updated_at = 0
-            
+
             device_status_list.append({
                 'ip': device_ip,
                 'online': alive,
                 'updatedAt': updated_at
             })
-            
+
         return device_status_list
 
 
@@ -625,6 +628,115 @@ class PaymentService(BaseService):
     async def refund_order(self, lot_id, car_no, pay_time="") -> RefundResponse:
         """退款订单"""
         pass
+
+
+class LogMonitorService(BaseService):
+    """提供日志监控相关服务"""
+
+    def __init__(self):
+        super().__init__()
+
+    def list_log_files(self, lot_id: str) -> List[str]:
+        """获取指定车场服务器上的日志文件列表"""
+        log_config = self.config.get_log_monitor_config(lot_id)
+        if not log_config or not log_config.get('enabled'):
+            raise HTTPException(status_code=404, detail="该车场未启用日志监控功能")
+
+        server_ip = self.config.get_parking_lot_by_id(lot_id).get('server_ip')
+        if not server_ip:
+            raise HTTPException(status_code=404, detail="未找到该车场的服务器IP")
+
+        ssh_manager = SSHManager(
+            hostname=server_ip,
+            port=log_config.get('ssh_port', 22),
+            username=log_config['ssh_user'],
+            password=log_config['ssh_password']
+        )
+
+        try:
+            ssh_manager.connect()
+            command = f"ls -1 {log_config['log_directory']}"
+            output, error, exit_status = ssh_manager.execute_command(command)
+            if exit_status != 0:
+                raise HTTPException(status_code=500, detail=f"获取日志文件列表失败: {error}")
+
+            files = [f for f in output.strip().split('\n') if f]  # 过滤掉空行
+            files.sort(reverse=True)  # 按名称倒序排序
+            return files
+        except Exception as e:
+            logger.error(f"[LogMonitor] 获取日志文件列表失败: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        finally:
+            ssh_manager.disconnect()
+
+    async def stream_log_file(self, lot_id: str, filename: str, websocket: WebSocket):
+        """通过WebSocket实时流式传输日志文件内容"""
+        log_config = self.config.get_log_monitor_config(lot_id)
+        if not log_config or not log_config.get('enabled'):
+            await websocket.close(code=1008, reason="该车场未启用日志监控功能")
+            return
+
+        server_ip = self.config.get_parking_lot_by_id(lot_id).get('server_ip')
+        if not server_ip:
+            await websocket.close(code=1008, reason="未找到该车场的服务器IP")
+            return
+
+        ssh_manager = SSHManager(
+            hostname=server_ip,
+            port=log_config.get('ssh_port', 22),
+            username=log_config['ssh_user'],
+            password=log_config['ssh_password']
+        )
+
+        channel = None
+        try:
+            await websocket.accept()
+            logger.info(f"[日志监控] WebSocket已接受 {lot_id} - {filename}")
+            ssh_manager.connect()
+            logger.info(f"[日志监控] 已为日志流建立SSH连接")
+
+            log_file_path = f"{log_config['log_directory']}/{filename}"
+            command = f"tail -f {log_file_path}"
+            logger.info(f"[日志监控] 正在执行命令: {command}")
+            channel = ssh_manager.get_streaming_channel(command)
+
+            buffer = ""
+            while not channel.exit_status_ready():
+                # Check for client-side close messages
+                try:
+                    message = await asyncio.wait_for(websocket.receive_text(), timeout=0.01)
+                    if message == 'close':
+                        logger.info("[日志监控] 收到来自客户端的'close'消息")
+                        break
+                except asyncio.TimeoutError:
+                    pass  # No message from client, continue
+
+                if channel.recv_ready():
+                    data = channel.recv(1024).decode('utf-8', errors='ignore')
+                    buffer += data
+                    while '\n' in buffer:
+                        line, buffer = buffer.split('\n', 1)
+                        line_to_send = line + '\n'
+                        logger.debug(f"[日志监控] 正在发送行: {line_to_send.strip()}")
+                        await websocket.send_text(line_to_send)
+
+                await asyncio.sleep(0.1)
+
+            # Send any remaining data in the buffer before closing
+            if buffer:
+                logger.debug(f"[日志监控] 正在发送剩余缓冲区: {buffer.strip()}")
+                await websocket.send_text(buffer)
+
+            logger.info("[日志监控] 已退出读取循环")
+
+        except Exception as e:
+            logger.error(f"[LogMonitor] 日志流传输异常: {e}")
+            await websocket.close(code=1011, reason=f"日志流传输异常: {str(e)}")
+        finally:
+            if channel:
+                channel.close()
+            ssh_manager.disconnect()
+            logger.info(f"[日志监控] 清理完成，WebSocket连接已关闭")
 
 
 if __name__ == '__main__':

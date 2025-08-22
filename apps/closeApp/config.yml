@@ -22,6 +22,12 @@ parking_lots:
     description: '1234'
     devices: *id001
     id: '280030477'
+    log_monitor:
+      enabled: true
+      log_directory: /home/keytop/log/ktparkcharge
+      ssh_password: kt123456
+      ssh_port: 22
+      ssh_user: keytop
     name: 成都灰度环境封闭测试车场
     server_ip: 192.168.0.236
   test:
@@ -31,6 +37,12 @@ parking_lots:
     description: '1234'
     devices: *id002
     id: '280025535'
+    log_monitor:
+      enabled: true
+      log_directory: /home/keytop/log/ktparkcharge
+      ssh_password: Kt_chengdu#123
+      ssh_port: 10022
+      ssh_user: root
     name: 天府新谷测试环境车场1
     server_ip: 192.168.0.183
 support_parking_ips:

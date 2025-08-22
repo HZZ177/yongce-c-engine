@@ -1,9 +1,9 @@
 import axios from 'axios'
-import type { 
-  ApiResponse, 
-  DeviceOnOffRequest, 
-  CarInOutRequest, 
-  CarOnParkRequest, 
+import type {
+  ApiResponse,
+  DeviceOnOffRequest,
+  CarInOutRequest,
+  CarOnParkRequest,
   PayOrderRequest,
   NodeStatusRequest,
   NodeStatusResponse,
@@ -123,11 +123,17 @@ export const nodeApi = {
     // 此接口保持原始格式返回
     return response.data as unknown as NodeStatusResponse
   },
-  
+
   changeNodeStatus: async (params: ChangeNodeStatusRequest): Promise<ApiResponse> => {
     const response = await api.get('/changeNodeStatus', { params })
     return response.data
   }
 }
+
+// 日志监控API
+export const listLogFiles = async (lot_id: string): Promise<ApiResponse<string[]>> => {
+  const response = await api.get('/log-files', { params: { lot_id } });
+  return response.data;
+};
 
 export default api

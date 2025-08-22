@@ -168,11 +168,29 @@
               </div>
             </div>
           </div>
+          <el-button
+            type="warning"
+            @click="showLogMonitorDialog = true"
+            size="default"
+            class="action-button"
+          >
+            日志监控
+          </el-button>
         </div>
       </div>
     </div>
 
 
+
+    <!-- 日志监控弹窗 -->
+    <el-dialog
+      v-model="showLogMonitorDialog"
+      title="实时日志监控"
+      width="70%"
+      :destroy-on-close="true"
+    >
+      <LogMonitor :lot-id="envStore.currentLotId" v-if="showLogMonitorDialog" />
+    </el-dialog>
 
     <!-- 查询结果 -->
     <div v-if="queryResult" class="query-result">
@@ -206,6 +224,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import LogMonitor from './LogMonitor.vue'
 import { ElMessage } from 'element-plus'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useHistoryStore } from '@/stores/history'
@@ -244,6 +263,9 @@ const showDateRangePanel = ref(false)
 // 模板引用
 const dateIconButtonRef = ref()
 const dateRangePanelRef = ref()
+
+// 日志监控相关状态
+const showLogMonitorDialog = ref(false)
 
 // 车辆入场
 const handleCarIn = async () => {

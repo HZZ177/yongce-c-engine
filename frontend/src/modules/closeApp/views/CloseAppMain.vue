@@ -190,13 +190,21 @@
         <!-- 车辆管理和支付管理 - 同一行平分宽度 -->
         <el-row :gutter="20" style="margin-bottom: 20px;">
           <el-col :span="12">
-        <VehicleManagement />
+        <VehicleManagement @toggle-log-monitor="toggleLogMonitor" :is-log-monitor-visible="showLogMonitor" />
           </el-col>
           <el-col :span="12">
         <PaymentManagement />
       </el-col>
         </el-row>
-      
+
+        <!-- 日志监控卡片 -->
+        <!-- 日志监控卡片 -->
+        <el-row v-if="showLogMonitor" style="margin-bottom: 20px;">
+          <el-col :span="24">
+            <LogMonitor :lot-id="envStore.currentLotId" @close="toggleLogMonitor" />
+          </el-col>
+        </el-row>
+
         <!-- 操作历史 - 移到最下方 -->
         <OperationHistory />
       </el-col>
@@ -232,6 +240,7 @@ import OperationHistory from '../components/OperationHistory.vue'
 import StandardTooltip from '@/modules/shared/components/StandardTooltip.vue'
 import QrCodeDialog from '../components/QrCodeDialog.vue'
 import ParkingLotEditor from '../components/ParkingLotEditor.vue'
+import LogMonitor from '@/components/LogMonitor.vue' // Use alias for root src path
 
 const envStore = useEnvironmentStore()
 const historyStore = useHistoryStore()
@@ -246,6 +255,13 @@ const currentQrCodeDevice = ref<any>(null)
 
 // 车场编辑器状态
 const parkingLotEditorVisible = ref(false)
+
+// 日志监控卡片可见性
+const showLogMonitor = ref(false)
+
+const toggleLogMonitor = () => {
+  showLogMonitor.value = !showLogMonitor.value
+}
 
 // 组件挂载时加载配置
 onMounted(async () => {
@@ -592,6 +608,7 @@ const deviceList = computed(() => {
 // 环境切换
 const handleEnvSwitch = async (env: 'test' | 'prod', event: Event) => {
   event.preventDefault()
+  showLogMonitor.value = false // 关闭日志监控
   envStore.setEnvironment(env)
   // 环境切换后预加载通道码缓存
   await envStore.preloadQrCodeData()
@@ -599,6 +616,7 @@ const handleEnvSwitch = async (env: 'test' | 'prod', event: Event) => {
 
 // 车场切换
 const handleLotChange = async (lotId: string) => {
+  showLogMonitor.value = false // 关闭日志监控
   envStore.setLotId(lotId)
   // 车场切换后预加载二维码数据
   await envStore.preloadQrCodeData()
