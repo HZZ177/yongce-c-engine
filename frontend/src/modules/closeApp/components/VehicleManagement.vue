@@ -981,7 +981,7 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
 .vehicle-management.has-log-monitor::after {
   content: '';
   position: absolute;
-  bottom: -16px; /* 视觉居中定位 */
+  bottom: 0px; /* 视觉居中定位 */
   left: 50%;
   transform: translateX(-50%);
   width: 0;

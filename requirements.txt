@@ -9,3 +9,4 @@ loguru==0.7.3
 requests==2.25.1
 paramiko==2.7.2
 websockets==13.1
+six==1.15.0
