@@ -22,6 +22,9 @@
         <el-button @click="toggleConnection" :type="isConnected ? 'danger' : 'primary'" size="default">
           {{ isConnected ? '断开连接' : '开始监控' }}
         </el-button>
+        <el-button @click="clearTerminal" type="warning" size="default" :disabled="!term">
+          清屏
+        </el-button>
         <div class="status-indicator" :class="{ connected: isConnected }">
           <div class="status-dot"></div>
           <span class="status-text">{{ isConnected ? '已连接' : '未连接' }}</span>
@@ -160,6 +163,18 @@ const disconnect = () => {
   }
 };
 
+const clearTerminal = () => {
+  if (term) {
+    term.clear();
+  }
+};
+
+const addNewLine = () => {
+  if (term) {
+    term.writeln('');
+  }
+};
+
 const handleClose = () => {
   if (isConnected.value) {
     isClosing = true;
@@ -213,6 +228,12 @@ watch(terminalRef, (terminalEl) => {
     fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalEl);
+
+    term.onKey(({ domEvent }) => {
+      if (domEvent.key === 'Enter') {
+        addNewLine();
+      }
+    });
 
     // 阻止在终端区域滚动时页面跟着滚动
     terminalEl.addEventListener('wheel', (event) => {
