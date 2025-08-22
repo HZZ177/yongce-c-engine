@@ -18,6 +18,7 @@
             :value="file"
           ></el-option>
         </el-select>
+        <el-button @click="fetchLogFiles" :loading="isFetchingFiles" :disabled="isConnected" :icon="Refresh" circle />
         <el-button @click="toggleConnection" :type="isConnected ? 'danger' : 'primary'" size="default">
           {{ isConnected ? '断开连接' : '开始监控' }}
         </el-button>
@@ -39,6 +40,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, defineProps, watch, defineEmits } from 'vue';
+import { Refresh } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
@@ -52,20 +54,30 @@ const logFiles = ref<string[]>([]);
 const selectedFile = ref<string>('');
 const isConnected = ref(false);
 const terminalRef = ref<HTMLElement | null>(null);
+const isFetchingFiles = ref(false);
 let term: Terminal;
 let fitAddon: FitAddon;
 let ws: WebSocket | null = null;
 let isClosing = false; // 用于标记是否由关闭按钮触发的断开连接
 
 const fetchLogFiles = async () => {
+  isFetchingFiles.value = true;
   try {
     const response = await listLogFiles(props.lotId);
     logFiles.value = response.data;
     if (logFiles.value.length > 0) {
-      selectedFile.value = logFiles.value[0];
+      // If there's no selected file or the selected file is not in the new list, select the first one.
+      if (!selectedFile.value || !logFiles.value.includes(selectedFile.value)) {
+        selectedFile.value = logFiles.value[0];
+      }
+    } else {
+      selectedFile.value = ''; // No files, clear selection
     }
+    ElMessage.success('日志文件列表已刷新');
   } catch (error) {
-    ElMessage.error('获取日志文件列表失败');
+    ElMessage.error('刷新日志文件列表失败');
+  } finally {
+    isFetchingFiles.value = false;
   }
 };
 

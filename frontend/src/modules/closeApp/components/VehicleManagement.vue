@@ -206,6 +206,9 @@
     <div v-if="queryResult" class="query-result">
       <div class="result-header">
         <h4 class="result-title">查询结果</h4>
+        <el-button link @click="queryResult = null" class="close-result-button">
+          <el-icon><Close /></el-icon>
+        </el-button>
       </div>
       <div class="result-content">
         <div class="result-item">
@@ -238,7 +241,7 @@ import { ElMessage } from 'element-plus'
 import { useEnvironmentStore } from '../stores/environment'
 import { useHistoryStore } from '../stores/history'
 import { vehicleApi } from '../api/closeApp'
-import { Calendar, Check, Refresh } from '@element-plus/icons-vue'
+import { Calendar, Check, Refresh, Close } from '@element-plus/icons-vue'
 
 
 // Define props
@@ -797,6 +800,9 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
 }
 
 .result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
 }
 
@@ -970,13 +976,12 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
   border-bottom: 2px solid #e6a23c; /* 警告色，与按钮匹配 */
   position: relative;
   overflow: visible; /* 确保伪元素可见 */
-  margin-bottom: 32px; /* 增加下边距为箭头留出空间 */
 }
 
 .vehicle-management.has-log-monitor::after {
   content: '';
   position: absolute;
-  bottom: 0px;
+  bottom: -16px; /* 视觉居中定位 */
   left: 50%;
   transform: translateX(-50%);
   width: 0;
@@ -984,5 +989,21 @@ const performQueryOnPark = async (carNo: string, autoQuery: boolean = false) => 
   border-left: 12px solid transparent;
   border-right: 12px solid transparent;
   border-bottom: 12px solid #e6a23c;
+}
+
+.close-result-button {
+  padding: 2px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.close-result-button .el-icon {
+  color: #909399; /* Grey color for the icon */
+  font-size: 16px; /* Adjust icon size */
+}
+
+.close-result-button:hover {
+  background-color: #f2f6fc; /* Light grey background on hover */
 }
 </style>
