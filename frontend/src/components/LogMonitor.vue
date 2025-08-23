@@ -28,7 +28,7 @@
             @input="handleLogLinesInput"
             class="log-lines-input"
           ></el-input>
-          <span class="log-lines-label">行的日志</span>
+          <span class="log-lines-label">行的历史日志</span>
         </div>
         <el-button @click="toggleConnection" :type="isConnected ? 'danger' : 'primary'" size="default">
           {{ isConnected ? '断开连接' : '开始监控' }}
