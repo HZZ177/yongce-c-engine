@@ -455,8 +455,9 @@ async def list_log_files(
 async def websocket_log_monitor(
     websocket: WebSocket,
     lot_id: str = Query(..., description="车场ID"),
-    filename: str = Query(..., description="要监控的日志文件名")
+    filename: str = Query(..., description="要监控的日志文件名"),
+    lines: int = Query(10, description="查看日志的尾部行数")
 ):
     """通过WebSocket实时监控日志文件"""
-    await log_monitor_service.stream_log_file(lot_id, filename, websocket)
+    await log_monitor_service.stream_log_file(lot_id, filename, websocket, lines)
 

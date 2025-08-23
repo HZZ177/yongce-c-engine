@@ -604,7 +604,7 @@ class LogMonitorService(BaseService):
         finally:
             ssh_manager.disconnect()
 
-    async def stream_log_file(self, lot_id: str, filename: str, websocket: WebSocket):
+    async def stream_log_file(self, lot_id: str, filename: str, websocket: WebSocket, lines: int = 10):
         """通过WebSocket实时流式传输日志文件内容"""
         log_config = self.config.get_log_monitor_config(lot_id)
         if not log_config or not log_config.get('enabled'):
@@ -631,7 +631,7 @@ class LogMonitorService(BaseService):
             logger.info(f"[日志监控] 已为日志流建立SSH连接")
 
             log_file_path = f"{log_config['log_directory']}/{filename}"
-            command = f"tail -f {log_file_path}"
+            command = f"tail -{lines}f {log_file_path}"
             logger.info(f"[日志监控] 正在执行命令: {command}")
             channel = ssh_manager.get_streaming_channel(command)
 

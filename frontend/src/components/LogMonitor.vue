@@ -19,6 +19,17 @@
           ></el-option>
         </el-select>
         <el-button @click="fetchLogFiles" :loading="isFetchingFiles" :disabled="isConnected" :icon="Refresh" circle />
+        <div class="log-lines-control">
+          <span class="log-lines-label">开始监控时显示之前</span>
+          <el-input
+            v-model="logLines"
+            placeholder="10"
+            :disabled="isConnected"
+            @input="handleLogLinesInput"
+            class="log-lines-input"
+          ></el-input>
+          <span class="log-lines-label">行的日志</span>
+        </div>
         <el-button @click="toggleConnection" :type="isConnected ? 'danger' : 'primary'" size="default">
           {{ isConnected ? '断开连接' : '开始监控' }}
         </el-button>
@@ -55,6 +66,7 @@ const emit = defineEmits(['close']);
 
 const logFiles = ref<string[]>([]);
 const selectedFile = ref<string>('');
+const logLines = ref<string>('10');
 const isConnected = ref(false);
 const terminalRef = ref<HTMLElement | null>(null);
 const isFetchingFiles = ref(false);
@@ -98,7 +110,8 @@ const connect = () => {
     return;
   }
 
-  const wsUrl = `ws://${window.location.hostname}:17771/closeApp/ws/log-monitor?lot_id=${props.lotId}&filename=${selectedFile.value}`;
+  const linesToSend = logLines.value || '10';
+  const wsUrl = `ws://${window.location.hostname}:17771/closeApp/ws/log-monitor?lot_id=${props.lotId}&filename=${selectedFile.value}&lines=${linesToSend}`;
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
@@ -183,6 +196,18 @@ const handleClose = () => {
     emit('close');
   }
 };
+const handleLogLinesInput = (value: string) => {
+  let filteredValue = value.replace(/[^\d]/g, ''); // 只保留数字
+  if (filteredValue) {
+    const numValue = parseInt(filteredValue, 10);
+    if (numValue > 1000) {
+      filteredValue = '1000';
+      ElMessage.warning('最多只能查看最近 1000 行日志');
+    }
+  }
+  logLines.value = filteredValue;
+};
+
 
 const fit = () => {
   try {
@@ -451,6 +476,21 @@ onUnmounted(() => {
 
 .terminal :deep(.xterm-viewport)::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
+}
+
+.log-lines-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-lines-label {
+  font-size: 14px;
+  color: #606266;
+}
+
+.log-lines-input {
+  width: 80px;
 }
 
 /* 响应式设计 */
