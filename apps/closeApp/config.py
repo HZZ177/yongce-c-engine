@@ -1,14 +1,27 @@
 import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
+import threading
 
 from core.logger import logger
 
 
 class Config:
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
-        self.config_path = Path(__file__).parent / "config.yml"
-        self._load_config()
+        if not hasattr(self, 'initialized'):  # Prevent re-initialization
+            self.config_path = Path(__file__).parent / "config.yml"
+            self._load_config()
+            self.initialized = True
 
     def _load_config(self):
         """加载配置文件"""
@@ -103,6 +116,31 @@ class Config:
             for lot in env_lots:
                 if lot.get("id") == lot_id:
                     return env
+        return None
+
+    def get_lot_info_by_device_ip(self, device_ip: str) -> Optional[Dict]:
+        """根据设备IP反向查找车场ID和设备类型，适配现有config.yml结构"""
+        # 检查测试环境设备
+        test_devices = self.get_test_device_ip()
+        for device_type_key, ip in test_devices.items():
+            if ip == device_ip:
+                # 'in_device' -> 'in'
+                device_type = device_type_key.replace('_device', '')
+                # 找到IP后，需要找到使用该环境的任一车场以确定server_ip等信息
+                # 注意：这里假设同一环境下的所有车场共享相同的设备IP，这与当前配置结构一致
+                test_lots = self.get_test_support_lot_ids()
+                if test_lots:
+                    return {"lot_id": test_lots[0], "device_type": device_type, "env": "test"}
+
+        # 检查生产环境设备
+        prod_devices = self.get_prod_device_ip()
+        for device_type_key, ip in prod_devices.items():
+            if ip == device_ip:
+                device_type = device_type_key.replace('_device', '')
+                prod_lots = self.get_prod_support_lot_ids()
+                if prod_lots:
+                    return {"lot_id": prod_lots[0], "device_type": device_type, "env": "prod"}
+
         return None
 
     def get_default_channel_name(self, device_ip: str) -> Optional[str]:

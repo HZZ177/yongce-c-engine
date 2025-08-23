@@ -5,12 +5,13 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, WebSocket
 
 from core.logger import logger
-from .custom_enum import LotIdEnum, ServerIpEnum
+
 from .schema import (
     DeviceOnOffRequest,
     CarInOutRequest
 )
 from .service import DeviceService, CarService, PaymentService, BaseService, LogMonitorService
+from .device_manager import device_manager
 from .config import Config
 from .util import success_response, error_response
 from typing import List, Optional
@@ -25,7 +26,7 @@ close_dsp_router = APIRouter()
 
 base_service = BaseService()
 device_service = DeviceService()
-car_service = CarService(device_service)
+car_service = CarService()
 pay_service = PaymentService()
 log_monitor_service = LogMonitorService()
 config = Config()
@@ -33,7 +34,7 @@ config = Config()
 @close_dsp_router.get("/deviceOn", description="设备上线接口", summary="设备上线接口")
 async def device_on(
     device_list: str = Query(..., description="设备IP列表，多个IP用英文逗号分隔"),
-    server_ip: ServerIpEnum = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236")
+    server_ip: str = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236")
 ):
     """设备上线接口"""
     try:
@@ -55,7 +56,7 @@ async def device_on(
 @close_dsp_router.get("/deviceOff", description="设备下线接口", summary="设备下线接口")
 async def device_off(
     device_list: str = Query(..., description="设备IP列表，多个IP用英文逗号分隔"),
-    server_ip: ServerIpEnum = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236")
+    server_ip: str = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236")
 ):
     """设备下线接口"""
     try:
@@ -78,8 +79,8 @@ async def device_off(
 async def car_in(
     car_no: str = Query("", description="车牌号"),
     i_open_type: int = Query(default=1, description="入场方式，不填默认相机直接放行(0:压地感 1:相机直接开闸放行)"),
-    server_ip: ServerIpEnum = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236"),
-    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
+    server_ip: str = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236"),
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     car_color: int = Query(default=3, description="车辆颜色(1:白 2:黑 3:蓝 4:黄 5:绿)"),
     recognition: int = Query(default=900, description="识别度"),
     i_serial: Optional[int] = Query(default=None, description="序列号")
@@ -127,8 +128,8 @@ async def car_in(
 async def car_out(
     car_no: str = Query("", description="车牌号"),
     i_open_type: int = Query(default=0, description="出场方式，不填默认压地感(0:压地感 1:相机直接开闸放行)"),
-    server_ip: ServerIpEnum = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236"),
-    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
+    server_ip: str = Query(..., description="服务器IP，测试环境192.168.0.183，灰度192.168.0.236"),
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     car_color: int = Query(default=3, description="车辆颜色(1:白 2:黑 3:蓝 4:黄 5:绿)"),
     recognition: int = Query(default=900, description="识别度"),
     i_serial: Optional[int] = Query(default=None, description="序列号")
@@ -174,7 +175,7 @@ async def car_out(
 
 @close_dsp_router.get("/carOnPark", description="查询在场车辆接口", summary="查询在场车辆接口")
 async def get_on_park(
-    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     car_no: str = Query(..., description="车牌号"),
     start_time: str = Query(default=datetime.now().strftime("%Y-%m-%d 00:00:00"), description="开始时间，非必填，不填默认当天00:00:00"),
     end_time: str = Query(default=datetime.now().strftime("%Y-%m-%d 23:59:59"), description="结束时间，非必填，不填默认当天23:59:59")
@@ -202,7 +203,7 @@ async def get_on_park(
 @close_dsp_router.get("/payInfo", description="模拟获取支付信息接口", summary="模拟获取支付信息接口")
 async def get_pay_info(
     car_no: str = Query(..., description="车牌号"),
-    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477")
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477")
 ):
     """获取支付订单信息接口"""
     kt_token = await pay_service.get_kt_token(lot_id)
@@ -212,7 +213,7 @@ async def get_pay_info(
 @close_dsp_router.get("/payOrder", description="模拟支付订单接口", summary="模拟支付订单接口")
 async def pay_order(
     car_no: str = Query(..., description="车牌号"),
-    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477")
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477")
 ):
     """模拟支付订单接口"""
     try:
@@ -269,8 +270,9 @@ async def add_parking_lot(
 
         success = config.add_parking_lot(env, lot_config)
         if success:
-            # add_parking_lot方法已经包含了保存和重载逻辑，无需重复调用
-            return success_response(message="车场配置添加成功")
+            device_manager.reconcile_devices()
+            await device_manager.initialize_all_devices()
+            return success_response(message="车场配置添加并重载设备成功")
         else:
             return error_response(message="车场配置添加失败")
     except Exception as e:
@@ -287,8 +289,9 @@ async def update_parking_lot(
     try:
         success = config.update_parking_lot(lot_id, updates)
         if success:
-            # update_parking_lot方法已经包含了保存和重载逻辑，无需重复调用
-            return success_response(message="车场配置更新成功")
+            device_manager.reconcile_devices()
+            await device_manager.initialize_all_devices()
+            return success_response(message="车场配置更新并重载设备成功")
         else:
             return error_response(message="车场配置更新失败，车场不存在")
     except Exception as e:
@@ -302,8 +305,9 @@ async def delete_parking_lot(lot_id: str):
     try:
         success = config.remove_parking_lot(lot_id)
         if success:
-            # remove_parking_lot方法已经包含了保存和重载逻辑，无需重复调用
-            return success_response(message="车场配置删除成功")
+            device_manager.reconcile_devices()
+            await device_manager.initialize_all_devices()
+            return success_response(message="车场配置删除并重载设备成功")
         else:
             return error_response(message="车场配置删除失败，车场不存在")
     except Exception as e:
@@ -371,7 +375,7 @@ async def get_default_channel_name(device_ip: str):
 
 @close_dsp_router.get("/nodeStatus", description="查询通道状态接口", summary="查询通道状态接口")
 async def node_status(
-    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     cloud_kt_token: str = Query(..., description="云助手token，需要自己代理到云助手获取一下")
 ):
     """查询通道状态接口"""
@@ -386,7 +390,7 @@ async def node_status(
 @close_dsp_router.get("/changeNodeStatus", description="通道长抬状态变更接口", summary="通道长抬状态变更接口")
 async def change_node_status(
         cloud_kt_token: str = Query(..., description="云助手token，需要自己代理到云助手获取一下"),
-        lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
+        lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
         node_ids: str = Query(..., description="通道ID列表"),
         status: int = Query(..., description="通道状态 0:关闭长抬，1:打开长抬"),
 ):
@@ -421,7 +425,7 @@ async def get_device_status(
 
 @close_dsp_router.get("/getChannelQrPic", description="获取通道二维码图片接口", summary="获取通道二维码图片接口")
 async def get_channel_qr_pic(
-    lot_id: LotIdEnum = Query(..., description="车场ID，测试环境280025535，灰度280030477")
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477")
 ):
     """获取通道二维码图片接口"""
     try:
@@ -435,11 +439,11 @@ async def get_channel_qr_pic(
 
 @close_dsp_router.get("/log-files", description="获取日志文件列表", summary="获取日志文件列表")
 async def list_log_files(
-    lot_id: LotIdEnum = Query(..., description="车场ID")
+    lot_id: str = Query(..., description="车场ID")
 ):
     """获取指定服务器上的日志文件列表"""
     try:
-        files = log_monitor_service.list_log_files(lot_id.value)
+        files = log_monitor_service.list_log_files(lot_id)
         return success_response(data=files)
     except HTTPException as e:
         return error_response(message=e.detail)

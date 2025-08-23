@@ -3,7 +3,7 @@
     <template #header>
       <div class="card-header">
         <span class="title">实时日志监控</span>
-        <el-button type="danger" size="small" @click="handleClose">关闭</el-button>
+        <el-button type="danger" size="default" @click="handleClose" class="close-button">关闭</el-button>
       </div>
     </template>
 
@@ -305,6 +305,13 @@ onUnmounted(() => {
 .title::before {
   content: "📊";
   font-size: 18px;
+}
+
+
+.close-button {
+  padding: 8px 15px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .controls-section {

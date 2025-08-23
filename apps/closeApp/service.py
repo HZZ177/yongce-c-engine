@@ -4,9 +4,9 @@ import json
 import requests
 from typing import List, Dict
 from apps.closeApp.config import Config
-from apps.closeApp.protocol import DeviceProtocol, BusinessProtocol
-from apps.closeApp.schema import DeviceOnOffRequest, DeviceOnOffResponse, BaseResponse, PaymentResponse, PaymentRequest, \
-    RefundRequest, RefundResponse, CarInOutResponse, CarInOutRequest
+from apps.closeApp.protocol import BusinessProtocol
+from apps.closeApp.schema import DeviceOnOffRequest, DeviceOnOffResponse, PaymentResponse, \
+    RefundResponse, CarInOutResponse, CarInOutRequest
 import random
 from datetime import datetime
 import traceback
@@ -14,6 +14,8 @@ from core.logger import logger
 from fastapi import HTTPException
 
 from fastapi import WebSocket
+
+from apps.closeApp.device_manager import device_manager
 from apps.closeApp.ssh_manager import SSHManager
 
 
@@ -182,93 +184,87 @@ class BaseService:
 class DeviceService(BaseService):
     def __init__(self):
         super().__init__()
-        self.devices = {}  # 存储设备实例
+        # self.devices = {}  # 由 device_manager 统一管理
 
     async def device_on(self, request: DeviceOnOffRequest) -> DeviceOnOffResponse:
-        """设备上线"""
-        try:
-            if not request.device_list:
-                return DeviceOnOffResponse(data="设备列表为空", resultCode=500)
+        """设备上线（重构后）"""
+        if not request.device_list:
+            return DeviceOnOffResponse(data="设备列表为空", resultCode=500)
 
-            success_devices = []
-            failed_devices = []
+        success_devices = []
+        failed_devices = []
 
-            for device_ip in request.device_list:
-                try:
-                    # 若已存在并且仍连接，则直接判定上线成功，避免重复建立连接与心跳线程
-                    if device_ip in self.devices:
-                        existing = self.devices[device_ip]
-                        if existing and existing.is_connected():
-                            success_devices.append(device_ip)
-                            continue
+        for device_ip in request.device_list:
+            # 通过设备IP反向查找车场和设备类型
+            lot_info = self.config.get_lot_info_by_device_ip(device_ip)
+            if not lot_info:
+                logger.warning(f"无法在配置中找到设备IP {device_ip} 对应的车场信息")
+                failed_devices.append(device_ip)
+                continue
 
-                    # 不存在或已断开，重新建立连接
-                    protocol = DeviceProtocol(
-                        server_ip=request.server_ip,
-                        server_port=5001,  # 默认端口
-                        client_ip=device_ip
-                    )
+            lot_id = lot_info['lot_id']
+            device_type = lot_info['device_type']
 
-                    if protocol.device_on(request.device_type):
-                        self.devices[device_ip] = protocol
-                        success_devices.append(device_ip)
-                    else:
-                        failed_devices.append(device_ip)
-                except Exception as e:
-                    logger.error(f"设备上线失败: {device_ip}，错误信息: {str(e)}")
-                    failed_devices.append(device_ip)
-                    raise Exception(f"设备上线失败: {device_ip}")
+            # 使用 device_manager 获取设备
+            loop = asyncio.get_running_loop()
+            protocol = await loop.run_in_executor(None, device_manager.get_device, lot_id, device_type)
 
-            if len(success_devices) == len(request.device_list):
-                return DeviceOnOffResponse(
-                    data=f"所有设备上线成功: {', '.join(success_devices)}",
-                    resultCode=200
-                )
+            if protocol and protocol.is_connected():
+                success_devices.append(device_ip)
             else:
-                return DeviceOnOffResponse(
-                    data=f"部分设备上线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
-                    resultCode=500
-                )
-        except Exception as e:
-            logger.error(f"设备上线失败: {str(e)}")
-            raise Exception(e)
+                failed_devices.append(device_ip)
+
+        if not failed_devices:
+            return DeviceOnOffResponse(
+                data=f"所有设备上线成功: {', '.join(success_devices)}",
+                resultCode=200
+            )
+        else:
+            return DeviceOnOffResponse(
+                data=f"部分设备上线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
+                resultCode=500
+            )
 
     async def device_off(self, request: DeviceOnOffRequest) -> DeviceOnOffResponse:
-        """设备下线"""
-        try:
-            if not request.device_list:
-                return DeviceOnOffResponse(data="设备列表为空", resultCode=500)
+        """设备下线（重构后）"""
+        if not request.device_list:
+            return DeviceOnOffResponse(data="设备列表为空", resultCode=500)
 
-            success_devices = []
-            failed_devices = []
+        success_devices = []
+        failed_devices = []
 
-            for device_ip in request.device_list:
-                try:
-                    if device_ip in self.devices:
-                        protocol = self.devices[device_ip]
-                        if protocol.device_off():
-                            del self.devices[device_ip]
-                            success_devices.append(device_ip)
-                        else:
-                            failed_devices.append(device_ip)
-                    else:
-                        failed_devices.append(device_ip)
-                except Exception as e:
+        for device_ip in request.device_list:
+            lot_info = self.config.get_lot_info_by_device_ip(device_ip)
+            if not lot_info:
+                logger.warning(f"无法在配置中找到设备IP {device_ip} 对应的车场信息")
+                failed_devices.append(device_ip)
+                continue
+
+            lot_id = lot_info['lot_id']
+            device_type = lot_info['device_type']
+            device_key = device_manager._get_device_key(lot_id, device_type)
+
+            if device_key in device_manager.devices:
+                protocol = device_manager.devices[device_key]
+                if protocol.device_off():
+                    del device_manager.devices[device_key]
+                    success_devices.append(device_ip)
+                else:
                     failed_devices.append(device_ip)
-
-            if len(success_devices) == len(request.device_list):
-                return DeviceOnOffResponse(
-                    data=f"所有设备下线成功: {', '.join(success_devices)}",
-                    resultCode=200
-                )
             else:
-                return DeviceOnOffResponse(
-                    data=f"部分设备下线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
-                    resultCode=500
-                )
-        except Exception as e:
-            logger.error(f"设备下线失败: {str(e)}")
-            raise Exception(f"设备下线失败: {str(e)}")
+                # 如果设备本就不在线，也算作“下线成功”
+                success_devices.append(device_ip)
+
+        if not failed_devices:
+            return DeviceOnOffResponse(
+                data=f"所有设备下线成功: {', '.join(success_devices)}",
+                resultCode=200
+            )
+        else:
+            return DeviceOnOffResponse(
+                data=f"部分设备下线失败！ 成功: {', '.join(success_devices)};  失败: {', '.join(failed_devices)}",
+                resultCode=500
+            )
 
     async def get_all_node_status(self, lot_id, cloud_kt_token):
         """查询通道设备状态"""
@@ -323,30 +319,19 @@ class DeviceService(BaseService):
             raise HTTPException(status_code=500, detail=f"查询通道设备状态失败: {str(e)}")
 
     async def get_device_status(self, device_ips: List[str], ttl_seconds: int = 12) -> List[Dict]:
-        """查询设备真实在线状态
-
-        Args:
-            device_ips: 设备IP列表
-            ttl_seconds: 心跳超时时间（秒），默认12秒
-
-        Returns:
-            设备状态列表，每个元素包含 {ip, online, updatedAt}
-        """
+        """查询设备真实在线状态（重构后）"""
         import time
         current_time = time.time()
-        device_status_list = []
 
-        for device_ip in device_ips:
-            device_ip = device_ip.strip()
-            if not device_ip:
-                continue
+        # Create a dictionary for quick lookup of statuses
+        status_dict = {ip: {'ip': ip, 'online': False, 'updatedAt': 0} for ip in device_ips}
 
-            # 检查设备是否在已连接列表中
-            if device_ip in self.devices:
-                protocol = self.devices[device_ip]
+        # Iterate through the devices managed by the device_manager
+        for protocol in device_manager.devices.values():
+            device_ip = protocol.client_ip
+            if device_ip in status_dict:
                 connected = protocol.is_connected()
 
-                # 检查心跳是否在TTL范围内
                 if connected and protocol.last_heartbeat_at:
                     time_since_heartbeat = current_time - protocol.last_heartbeat_at
                     alive = time_since_heartbeat <= ttl_seconds
@@ -354,72 +339,38 @@ class DeviceService(BaseService):
                 else:
                     alive = False
                     updated_at = 0
-            else:
-                # 设备未连接
-                connected = False
-                alive = False
-                updated_at = 0
 
-            device_status_list.append({
-                'ip': device_ip,
-                'online': alive,
-                'updatedAt': updated_at
-            })
+                status_dict[device_ip]['online'] = alive
+                status_dict[device_ip]['updatedAt'] = updated_at
 
-        return device_status_list
+        return list(status_dict.values())
 
 
 class CarService(BaseService):
-    def __init__(self, device_service: DeviceService):
+    def __init__(self):
         super().__init__()
-        self.device_service = device_service
+        # self.device_service is no longer needed, using device_manager singleton directly
 
 
     async def car_in(self, request: CarInOutRequest) -> CarInOutResponse:
-        """车辆入场"""
+        """车辆入场（重构后）"""
         try:
-            if not request.server_ip:
-                logger.error("服务器IP不能为空")
-                return CarInOutResponse(data="服务器IP不能为空", resultCode=500)
+            # 1. 通过 device_manager 获取设备协议
+            loop = asyncio.get_running_loop()
+            device_protocol = await loop.run_in_executor(None, device_manager.get_device, request.lot_id, "in")
 
-            # 获取设备协议，使用指定IP
-            if request.lot_id in self.config.get_test_support_lot_ids():
-                device_ip = self.config.get_test_device_ip().get("in_device")
-            elif request.lot_id in self.config.get_prod_support_lot_ids():
-                device_ip = self.config.get_prod_device_ip().get("in_device")
-            else:
-                logger.error(f"不支持的停车场: {request.lot_id}")
-                return CarInOutResponse(data="不支持的停车场", resultCode=500)
+            if not device_protocol or not device_protocol.is_connected():
+                logger.error(f"无法获取或连接到入场设备: lot_id={request.lot_id}")
+                return CarInOutResponse(data=f"设备上线失败", resultCode=500)
 
-            if not device_ip:
-                logger.error("设备IP不能为空")
-                raise Exception("设备IP不能为空")
-
-            # 优先复用已存在的设备连接；若无或已断开再进行上线
-            device_protocol = None
-            if device_ip in self.device_service.devices:
-                candidate = self.device_service.devices[device_ip]
-                if candidate and candidate.is_connected():
-                    device_protocol = candidate
-            if device_protocol is None:
-                device_protocol = DeviceProtocol(
-                    server_ip=request.server_ip or "192.168.0.183",
-                    server_port=5001,
-                    client_ip=device_ip
-                )
-                if not device_protocol.device_on():
-                    return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
-                # 记录（或覆盖）到设备管理，便于后续复用
-                self.device_service.devices[device_ip] = device_protocol
-
-            # 发送车辆入场信息
+            # 2. 发送车辆入场信息
             business_protocol = BusinessProtocol(
-                server_ip=request.server_ip or "192.168.0.183",
-                server_port=5001,
-                client_ip=device_ip
+                server_ip=device_protocol.server_ip,
+                server_port=device_protocol.server_port,
+                client_ip=device_protocol.client_ip
             )
 
-            # 重用已建立的连接与同一把发送锁，避免并发写 socket
+            # 3. 重用已建立的连接与锁
             business_protocol.sock = device_protocol.sock
             business_protocol.send_lock = device_protocol.send_lock
 
@@ -449,48 +400,24 @@ class CarService(BaseService):
             raise Exception(e)
 
     async def car_out(self, request: CarInOutRequest) -> CarInOutResponse:
-        """车辆出场"""
+        """车辆出场（重构后）"""
         try:
-            if not request.server_ip:
-                return CarInOutResponse(data="服务器IP不能为空", resultCode=500)
+            # 1. 通过 device_manager 获取设备协议
+            loop = asyncio.get_running_loop()
+            device_protocol = await loop.run_in_executor(None, device_manager.get_device, request.lot_id, "out")
 
-            # 获取设备协议，使用指定IP
-            if request.lot_id in self.config.get_test_support_lot_ids():
-                device_ip = self.config.get_test_device_ip().get("out_device")
-            elif request.lot_id in self.config.get_prod_support_lot_ids():
-                device_ip = self.config.get_prod_device_ip().get("out_device")
-            else:
-                logger.error(f"不支持的停车场: {request.lot_id}")
-                return CarInOutResponse(data="不支持的停车场", resultCode=500)
-            if not device_ip:
-                logger.error("设备IP不能为空")
-                raise Exception("设备IP不能为空")
+            if not device_protocol or not device_protocol.is_connected():
+                logger.error(f"无法获取或连接到出场设备: lot_id={request.lot_id}")
+                return CarInOutResponse(data=f"设备上线失败", resultCode=500)
 
-            # 优先复用已存在的设备连接；若无或已断开再进行上线
-            device_protocol = None
-            if device_ip in self.device_service.devices:
-                candidate = self.device_service.devices[device_ip]
-                if candidate and candidate.is_connected():
-                    device_protocol = candidate
-            if device_protocol is None:
-                device_protocol = DeviceProtocol(
-                    server_ip=request.server_ip or "192.168.0.183",
-                    server_port=5001,
-                    client_ip=device_ip
-                )
-                if not device_protocol.device_on():
-                    return CarInOutResponse(data=f"设备 {device_ip} 上线失败", resultCode=500)
-                # 记录（或覆盖）到设备管理，便于后续复用
-                self.device_service.devices[device_ip] = device_protocol
-
-            # 发送车辆出场信息
+            # 2. 发送车辆出场信息
             business_protocol = BusinessProtocol(
-                server_ip=request.server_ip or "192.168.0.183",
-                server_port=5001,
-                client_ip=device_ip
+                server_ip=device_protocol.server_ip,
+                server_port=device_protocol.server_port,
+                client_ip=device_protocol.client_ip
             )
 
-            # 重用已建立的连接与同一把发送锁，避免并发写 socket
+            # 3. 重用已建立的连接与锁
             business_protocol.sock = device_protocol.sock
             business_protocol.send_lock = device_protocol.send_lock
 
@@ -750,7 +677,7 @@ class LogMonitorService(BaseService):
 if __name__ == '__main__':
     base_service = BaseService()
     device_service = DeviceService()
-    car_service = CarService(device_service)
+    car_service = CarService()  # Updated initialization
     pay_service = PaymentService()
 
     res = asyncio.run(base_service.get_channel_qr_pic("280025535"))

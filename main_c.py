@@ -6,7 +6,20 @@ from apps.roadApp.router import road_dsp_router
 from core.middleware import RequestLoggingMiddleware
 import uvicorn
 
+from apps.closeApp.device_manager import device_manager
+import asyncio
+
 app = FastAPI(title="Yongce-Pro-C端 引擎 API")
+
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时初始化所有设备"""
+    asyncio.create_task(device_manager.initialize_all_devices())
+
+@app.on_event("shutdown")
+def shutdown_event():
+    """应用关闭时关闭所有设备连接"""
+    device_manager.shutdown_all_devices()
 
 # 添加请求日志中间件
 app.add_middleware(RequestLoggingMiddleware)
