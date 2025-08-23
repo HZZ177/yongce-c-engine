@@ -11,7 +11,7 @@ from .schema import (
 )
 from .service import RoadService
 from .config import RoadConfig
-from .util import success_response, error_response
+from core.util import success_response, error_response
 from typing import Optional
 
 def convert_pydantic_model(obj):
