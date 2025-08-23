@@ -361,9 +361,9 @@ class CarService(BaseService):
 
             if not device_protocol or not device_protocol.is_connected():
                 logger.error(f"无法获取或连接到入场设备: lot_id={request.lot_id}")
-                return CarInOutResponse(data=f"设备上线失败", resultCode=500)
+                raise Exception(f"无法获取或连接到入场设备: lot_id={request.lot_id}")
 
-            # 2. 发送车辆入场信息
+            # 2. 构建业务协议
             business_protocol = BusinessProtocol(
                 server_ip=device_protocol.server_ip,
                 server_port=device_protocol.server_port,
@@ -408,9 +408,9 @@ class CarService(BaseService):
 
             if not device_protocol or not device_protocol.is_connected():
                 logger.error(f"无法获取或连接到出场设备: lot_id={request.lot_id}")
-                return CarInOutResponse(data=f"设备上线失败", resultCode=500)
+                raise Exception(f"无法获取或连接到出场设备: lot_id={request.lot_id}")
 
-            # 2. 发送车辆出场信息
+            # 2. 构建业务协议
             business_protocol = BusinessProtocol(
                 server_ip=device_protocol.server_ip,
                 server_port=device_protocol.server_port,
