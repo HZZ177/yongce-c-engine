@@ -4,7 +4,7 @@
     <header class="app-header">
       <div class="header-container">
         <div class="header-left">
-          <h1 class="app-title">永策C端测试工具</h1>
+          <h1 class="app-title">永策C端工具平台</h1>
         </div>
         
         <!-- 导航标签 -->
