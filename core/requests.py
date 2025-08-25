@@ -16,7 +16,7 @@ from core.logger import logger
 class RequestClient:
     """HTTP请求客户端封装类"""
     
-    def __init__(self, timeout: int = 30, log_sensitive: bool = False):
+    def __init__(self, timeout: int = 10, log_sensitive: bool = False):
         """
         初始化请求客户端
         
