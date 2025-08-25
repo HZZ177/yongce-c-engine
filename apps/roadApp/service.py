@@ -1,9 +1,8 @@
 import hashlib
 import uuid
 
-import requests
-
 from apps.roadApp.config import RoadConfig
+from core.requests import RequestClient
 from apps.roadApp.schema import RoadCarInOutRequest, RoadPresentCarInfoRequest
 from core.logger import logger
 
@@ -13,6 +12,7 @@ class RoadService:
 
     def __init__(self):
         self.config = RoadConfig()
+        self.http_client = RequestClient()
 
     async def car_in(self, request: RoadCarInOutRequest):
         """路侧车辆入场"""
@@ -40,7 +40,7 @@ class RoadService:
             "source": request.source,
             "eventId": str(uuid.uuid4()),
         }
-        res = requests.post(url,headers=header, json=data)
+        res = self.http_client.post(url,headers=header, json=data)
         if res.status_code != 200:
             logger.error(f"路侧车辆入场接口调用失败！错误为【{res.text}】")
             raise Exception(f"路侧车辆入场接口调用失败！错误为【{res.text}】")
@@ -77,7 +77,7 @@ class RoadService:
             "source": request.source,
             "eventId": str(uuid.uuid4()),
         }
-        res = requests.post(url, headers=header, json=data)
+        res = self.http_client.post(url, headers=header, json=data)
         if res.status_code != 200:
             logger.error(f"路侧车辆出场接口调用失败！错误为【{res.text}】")
             raise Exception(f"路侧车辆出场接口调用失败！错误为【{res.text}】")
@@ -112,7 +112,7 @@ class RoadService:
             "carType": request.car_type,
         }
 
-        res = requests.post(url, headers=header, json=data)
+        res = self.http_client.post(url, headers=header, json=data)
 
         if res.status_code != 200:
             logger.error(f"路侧查询在场车调用失败！错误为【{res.text}】")
@@ -157,7 +157,7 @@ class RoadService:
             "code": img_code,
             "codeKey": img_code_key
         }
-        response = requests.post(url=url, headers=headers, json=login_data)
+        response = self.http_client.post(url=url, headers=headers, json=login_data)
         result_json = response.json()
         if result_json["resultCode"] == 200:
             logger.info("永策PRO平台登录成功！")
@@ -191,7 +191,7 @@ class RoadService:
             "lotId": lot_id,
             "roadName": ""
         }
-        res = requests.post(url=url, json=data, headers=headers, timeout=10)
+        res = self.http_client.post(url=url, json=data, headers=headers, timeout=10)
         if res.status_code != 200:
             raise Exception(f"请求失败，返回：{res.text}")
         result_json = res.json()
@@ -223,7 +223,7 @@ class RoadService:
             "pageNum": page_num,
             "pageSize": page_size,
         }
-        res = requests.post(url=url, json=data, headers=headers, timeout=10)
+        res = self.http_client.post(url=url, json=data, headers=headers, timeout=10)
         if res.status_code != 200:
             raise Exception(f"请求失败，返回：{res.text}")
         result_json = res.json()

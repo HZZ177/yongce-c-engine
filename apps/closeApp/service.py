@@ -1,8 +1,8 @@
 import asyncio
 import hashlib
 import json
-import requests
 from typing import List, Dict
+from core.requests import RequestClient
 from apps.closeApp.config import Config
 from apps.closeApp.protocol import BusinessProtocol
 from apps.closeApp.schema import DeviceOnOffRequest, DeviceOnOffResponse, PaymentResponse, \
@@ -22,6 +22,7 @@ from apps.closeApp.ssh_manager import SSHManager
 class BaseService:
     def __init__(self):
         self.config = Config()
+        self.http_client = RequestClient()
 
     async def get_kt_token(self, lot_id):
         """获取统一平台登录token"""
@@ -35,7 +36,7 @@ class BaseService:
         try:
             headers = {"content-type": "application/json", "kt-lotcodes": lot_id}
             data = {"code": "", "expireDay": 0, "loginWay": "", "mobileCode": "0592", "phone": "19182295006"}
-            res = requests.post(url=url, headers=headers, data=json.dumps(data))
+            res = self.http_client.post(url=url, headers=headers, data=json.dumps(data))
             if res.status_code != 200:
                 logger.error(f"统一平台登录失败: {res.text}")
                 raise HTTPException(status_code=500, detail=f"统一平台登录失败: {res.text}")
@@ -80,7 +81,7 @@ class BaseService:
             "code": img_code,
             "codeKey": img_code_key
         }
-        response = requests.post(url=url, headers=headers, json=login_data)
+        response = self.http_client.post(url=url, headers=headers, json=login_data)
         result_dic = response.json()
         if result_dic["resultCode"] == 200:
             logger.info("永策PRO平台登录成功！")
@@ -140,11 +141,11 @@ class BaseService:
             raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
 
         try:
-            response = requests.post(url=url, headers=headers, json=data, timeout=5)
+            response = self.http_client.post(url=url, headers=headers, json=data, timeout=5)
             if response.status_code != 200:
                 raise HTTPException(status_code=500, detail="查询在场接口出错！")
             return response.json()
-        except requests.RequestException as e:
+        except Exception as e:
             raise HTTPException(status_code=500, detail=f"查询在场车辆失败: {str(e)}")
 
     async def get_channel_qr_pic(self, lot_id):
@@ -171,11 +172,11 @@ class BaseService:
             raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
         url = base_url + "/admin-vehicle-owner/lotSpace/nodeCode/list"
         try:
-            response = requests.post(url=url, headers=headers, json=data, timeout=5)
+            response = self.http_client.post(url=url, headers=headers, json=data, timeout=5)
             if response.status_code != 200:
                 raise HTTPException(status_code=500, detail=f"获取车场通道二维码图片失败！返回信息{response.text}")
             return response.json()
-        except requests.RequestException as e:
+        except Exception as e:
             raise HTTPException(status_code=500, detail=f"获取车场通道二维码图片失败: {str(e)}")
 
 
@@ -283,12 +284,12 @@ class DeviceService(BaseService):
             "nodeType": "-1"
         }
         try:
-            node_status = requests.post(url=url, headers=headers, json=data)
+            node_status = self.http_client.post(url=url, headers=headers, json=data)
             if node_status.json().get("code") != 2000:
                 raise Exception(f"查询通道设备状态失败！响应：{node_status.text}")
             device_data = node_status.json().get("data")
             return device_data
-        except requests.RequestException as e:
+        except Exception as e:
             raise HTTPException(status_code=500, detail=f"查询通道设备状态失败: {str(e)}")
 
     async def change_node_status(self, cloud_kt_token, lot_id, node_ids, status):
@@ -310,12 +311,12 @@ class DeviceService(BaseService):
             "status": status
         }
         try:
-            change_res = requests.post(url=url, headers=headers, json=data)
+            change_res = self.http_client.post(url=url, headers=headers, json=data)
             res_json = change_res.json()
             if res_json.get("code") != 2000:
                 raise Exception(f"修改通道状态失败，响应: {change_res.text}")
             return res_json
-        except requests.RequestException as e:
+        except Exception as e:
             raise HTTPException(status_code=500, detail=f"查询通道设备状态失败: {str(e)}")
 
     async def get_device_status(self, device_ips: List[str], ttl_seconds: int = 12) -> List[Dict]:
@@ -483,7 +484,7 @@ class PaymentService(BaseService):
             "cardNo": ""
         }
 
-        res = requests.post(url=url, headers=headers, data=data, timeout=5)
+        res = self.http_client.post(url=url, headers=headers, data=data, timeout=5)
         if res.status_code != 200:
             logger.error(f"查询车场支付订单接口错误！错误返回为{res.text}")
             raise HTTPException(status_code=500, detail=f"查询车场支付订单接口错误！错误返回为{res.text}")
@@ -542,7 +543,7 @@ class PaymentService(BaseService):
                 "totalMoney": 0
             }
 
-            pay_res = requests.post(url=url, headers=headers, data=json.dumps(data), timeout=5)
+            pay_res = self.http_client.post(url=url, headers=headers, data=json.dumps(data), timeout=5)
             if pay_res.status_code == 200:
                 res = {
                     "data": f"【{car_no}】的订单【{order_info['orderNo']}】支付普通停车费【{order_info['payMoney']}】成功！",
