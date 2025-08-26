@@ -73,11 +73,13 @@ class RequestClient:
                 log_info["请求数据"] = self._sanitize_data(data)
             elif json_data:
                 log_info["请求JSON"] = self._sanitize_data(json_data)
+            elif 'json' in kwargs:
+                log_info["请求JSON"] = self._sanitize_data(kwargs['json'])
             
             # 记录其他参数
             if kwargs:
                 other_params = {k: v for k, v in kwargs.items() 
-                              if k not in ['headers', 'data', 'json', 'timeout']}
+                              if k not in ['headers', 'data', 'json_data', 'json', 'timeout']}
                 if other_params:
                     log_info["其他参数"] = other_params
             
