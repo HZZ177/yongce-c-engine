@@ -95,7 +95,6 @@ class BaseService:
         token = login_res.get("data").get("token")
         return token
 
-
     async def get_on_park(
             self,
             lot_id: str,
@@ -179,7 +178,36 @@ class BaseService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"获取车场通道二维码图片失败: {str(e)}")
 
+    async def get_close_park_code(self, lot_id):
+        """获取封闭车场-场内码"""
+        if not self.config.is_supported_lot_id(lot_id):
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
+        yongce_pro_token = await self.get_yongce_pro_admin_token(lot_id)
+        headers = {
+            "content-type": "application/json",
+            "Token": yongce_pro_token
+        }
+        data = {
+            "lotCode": lot_id,
+            "pageNumber": 1,
+            "pageSize": 100
+        }
+
+        if lot_id in self.config.get_test_support_lot_ids():
+            base_url = self.config.get_yongce_pro_config().get("domain").get("test")
+        elif lot_id in self.config.get_prod_support_lot_ids():
+            base_url = self.config.get_yongce_pro_config().get("domain").get("prod")
+        else:
+            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+        url = base_url + "/admin-vehicle-owner/lotSpace/lot/list"
+        try:
+            response = self.http_client.post(url=url, headers=headers, json=data, timeout=5)
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail=f"获取车场场内码失败！返回信息{response.text}")
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"获取车场场内码失败: {str(e)}")
 
 
 class DeviceService(BaseService):
@@ -352,7 +380,6 @@ class CarService(BaseService):
         super().__init__()
         # self.device_service is no longer needed, using device_manager singleton directly
 
-
     async def car_in(self, request: CarInOutRequest) -> CarInOutResponse:
         """车辆入场（重构后）"""
         try:
@@ -501,7 +528,6 @@ class PaymentService(BaseService):
             return {"orderNo": order_no, "payMoney": pay_money}
         else:
             raise Exception(f"查询车场支付订单接口错误！错误返回为{res_dic}")
-
 
     async def pay_order(self, lot_id, car_no, pay_time="") -> PaymentResponse:
         """支付订单"""

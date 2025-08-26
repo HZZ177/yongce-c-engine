@@ -71,3 +71,29 @@ export interface GetChannelQrPicResponse {
     recordSize: number
   }
 }
+
+// 场内码信息
+export interface CloseParkCodeRecord {
+  lotCode: string
+  lotName: string
+  lotType: number
+  lotTypeName: string
+  parkingSpaceNum: number
+  closeParkCode: string
+}
+
+// 获取场内码响应
+export interface GetCloseParkCodeResponse {
+  success: boolean
+  code: string
+  msg: string
+  requestId: string | null
+  data: {
+    records: CloseParkCodeRecord[]
+    pageSize: number
+    pageNumber: number
+    totalCount: number
+    totalPage: number
+    recordSize: number
+  }
+}

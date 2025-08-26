@@ -16,6 +16,14 @@
               <el-icon><Edit /></el-icon>
               环境编辑
             </el-button>
+            <el-button
+              type="info"
+              size="small"
+              @click="handleViewCloseParkCode"
+              :disabled="!envStore.currentLotId"
+            >
+              场内码
+            </el-button>
           </div>
         </div>
         
@@ -213,9 +221,10 @@
     <!-- 二维码弹窗 -->
     <QrCodeDialog
       v-model="qrCodeDialogVisible"
-      :channel-name="currentQrCodeDevice ? getChannelName(currentQrCodeDevice) : ''"
-      :channel-type="currentQrCodeDevice?.type || 'in'"
+      :channel-name="qrDialogProps.channelName"
+      :channel-type="qrDialogProps.channelType"
       :lot-id="envStore.currentLotId"
+      :is-close-park="qrDialogProps.isClosePark"
     />
 
     <!-- 车场编辑器 -->
@@ -252,6 +261,11 @@ const deviceLoadingStates = ref<Record<string, boolean>>({})
 // 二维码弹窗状态
 const qrCodeDialogVisible = ref(false)
 const currentQrCodeDevice = ref<any>(null)
+const qrDialogProps = ref<{ channelName: string; channelType: 'in' | 'out'; isClosePark: boolean }>({
+  channelName: '',
+  channelType: 'in',
+  isClosePark: false
+})
 
 // 车场编辑器状态
 const parkingLotEditorVisible = ref(false)
@@ -397,6 +411,24 @@ const handleViewQrCode = (device: any) => {
   }
   
   currentQrCodeDevice.value = device
+  qrDialogProps.value = {
+    channelName: getChannelName(device),
+    channelType: device.type,
+    isClosePark: false
+  }
+  qrCodeDialogVisible.value = true
+}
+// 查看场内码
+const handleViewCloseParkCode = () => {
+  if (!envStore.currentLotId) {
+    ElMessage.warning('请先选择车场')
+    return
+  }
+  qrDialogProps.value = {
+    channelName: '',
+    channelType: 'in',
+    isClosePark: true
+  }
   qrCodeDialogVisible.value = true
 }
 

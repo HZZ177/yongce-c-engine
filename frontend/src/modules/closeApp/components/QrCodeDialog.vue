@@ -25,7 +25,10 @@
       
       <!-- 二维码内容 -->
       <div v-else-if="qrCodeUrl" class="qr-content">
-        <div class="channel-info">
+        <div v-if="props.isClosePark" class="channel-info">
+          <h4 class="channel-name">{{ lotDisplayName }} - 场内码</h4>
+        </div>
+        <div v-else class="channel-info">
           <h4 class="channel-name">{{ channelName }}</h4>
           <p class="channel-type">{{ channelType === 'in' ? '入口通道' : '出口通道' }}</p>
         </div>
@@ -34,7 +37,7 @@
                 <img 
         :key="imgKey"
         :src="qrCodeUrl" 
-        :alt="`${channelName}二维码`"
+        :alt="props.isClosePark ? '场内码二维码' : `${channelName}二维码`"
         class="qr-image"
         @error="handleImageError"
         @load="handleImageLoad"
@@ -68,7 +71,7 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading, Warning, Picture } from '@element-plus/icons-vue'
-import { deviceApi } from '@/api/closeApp'
+import { deviceApi, closeParkApi } from '@/modules/closeApp/api/closeApp'
 import { useHistoryStore } from '@/stores/history'
 import { useEnvironmentStore } from '../stores/environment'
 import type { ChannelQrCode } from '@/types'
@@ -78,6 +81,8 @@ const props = defineProps<{
   channelName: string
   channelType: 'in' | 'out'
   lotId: string
+  // 新增：是否展示场内码（固定码）。若为true，则忽略channelName和channelType，仅按lotId查询场内码
+  isClosePark?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -101,7 +106,10 @@ const visible = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
-const dialogTitle = computed(() => `查看二维码 - ${props.channelName}`)
+const dialogTitle = computed(() => {
+  if (props.isClosePark) return '查看场内码'
+  return `查看二维码 - ${props.channelName}`
+})
 
 // 监听弹窗显示状态
 watch(visible, (newVal) => {
@@ -128,68 +136,105 @@ const fetchQrCode = async () => {
   const startTime = Date.now()
   
   try {
-    // 首先尝试从缓存中获取数据
-    const cachedData = envStore.getQrCodeData(props.channelName)
-    
-    if (cachedData) {
-      // 缓存中有数据，直接使用
-      qrCodeData.value = cachedData
-      qrCodeUrl.value = cachedData.nodeQrCode
-      imageLoading.value = true
-      
-      // 记录成功历史
-      const duration = Date.now() - startTime
-      historyStore.addHistory({
-        operation: '获取通道二维码',
-        params: {
-          channelName: props.channelName,
-          channelType: props.channelType,
-          lotId: props.lotId
-        },
-        result: 'success',
-        message: `成功获取${props.channelName}的二维码（缓存）`,
-        duration
-      })
+    if (props.isClosePark) {
+      // 获取场内码（固定码）
+      const result = await closeParkApi.getCloseParkCode({ lot_id: props.lotId })
+      if (result.resultCode === 200 && result.data?.success) {
+        const record = result.data.data?.records?.[0]
+        if (record && record.closeParkCode) {
+          qrCodeUrl.value = record.closeParkCode
+          imageLoading.value = true
+          const duration = Date.now() - startTime
+          historyStore.addHistory({
+            operation: '获取场内码',
+            params: { lotId: props.lotId },
+            result: 'success',
+            message: '成功获取场内码',
+            duration
+          })
+        } else {
+          throw new Error('未获取到场内码')
+        }
+      } else {
+        throw new Error(result.resultMsg || '获取场内码失败')
+      }
     } else {
-      // 缓存中没有数据，需要重新请求
-      const result = await deviceApi.getChannelQrPic({
-        lot_id: props.lotId
-      })
+      // 首先尝试从缓存中获取数据
+      const cachedData = envStore.getQrCodeData(props.channelName)
       
-      if (result.resultCode === 200 && result.data) {
-        const responseData = result.data
+      if (cachedData) {
+        // 缓存中有数据，直接使用
+        qrCodeData.value = cachedData
+        qrCodeUrl.value = cachedData.nodeQrCode
+        imageLoading.value = true
         
-        if (responseData.success && responseData.data?.records) {
-          // 根据通道名称匹配对应的二维码
-          console.log('查找通道名称:', props.channelName)
-          console.log('可用通道列表:', responseData.data.records.map((r: ChannelQrCode) => ({ name: r.nodeName, hasQr: !!r.nodeQrCode })))
+        // 记录成功历史
+        const duration = Date.now() - startTime
+        historyStore.addHistory({
+          operation: '获取通道二维码',
+          params: {
+            channelName: props.channelName,
+            channelType: props.channelType,
+            lotId: props.lotId
+          },
+          result: 'success',
+          message: `成功获取${props.channelName}的二维码（缓存）`,
+          duration
+        })
+      } else {
+        // 缓存中没有数据，需要重新请求
+        const result = await deviceApi.getChannelQrPic({
+          lot_id: props.lotId
+        })
+        
+        if (result.resultCode === 200 && result.data) {
+          const responseData = result.data
           
-          const matchedChannel = responseData.data.records.find(
-            (record: ChannelQrCode) => record.nodeName === props.channelName
-          )
-          
-          if (matchedChannel) {
-            // 检查二维码URL是否有效
-            if (matchedChannel.nodeQrCode && matchedChannel.nodeQrCode.trim() !== '') {
-              qrCodeData.value = matchedChannel
-              qrCodeUrl.value = matchedChannel.nodeQrCode
-              imageLoading.value = true
-              
-              // 记录成功历史
-              const duration = Date.now() - startTime
-              historyStore.addHistory({
-                operation: '获取通道二维码',
-                params: {
-                  channelName: props.channelName,
-                  channelType: props.channelType,
-                  lotId: props.lotId
-              },
-                result: 'success',
-                message: `成功获取${props.channelName}的二维码`,
-                duration
-              })
+          if (responseData.success && responseData.data?.records) {
+            // 根据通道名称匹配对应的二维码
+            const matchedChannel = responseData.data.records.find(
+              (record: ChannelQrCode) => record.nodeName === props.channelName
+            )
+            
+            if (matchedChannel) {
+              // 检查二维码URL是否有效
+              if (matchedChannel.nodeQrCode && matchedChannel.nodeQrCode.trim() !== '') {
+                qrCodeData.value = matchedChannel
+                qrCodeUrl.value = matchedChannel.nodeQrCode
+                imageLoading.value = true
+                
+                // 记录成功历史
+                const duration = Date.now() - startTime
+                historyStore.addHistory({
+                  operation: '获取通道二维码',
+                  params: {
+                    channelName: props.channelName,
+                    channelType: props.channelType,
+                    lotId: props.lotId
+                },
+                  result: 'success',
+                  message: `成功获取${props.channelName}的二维码`,
+                  duration
+                })
+              } else {
+                error.value = `通道"${props.channelName}"暂无二维码`
+                
+                // 记录失败历史
+                const duration = Date.now() - startTime
+                historyStore.addHistory({
+                  operation: '获取通道二维码',
+                  params: {
+                    channelName: props.channelName,
+                    channelType: props.channelType,
+                    lotId: props.lotId
+                  },
+                  result: 'error',
+                  message: error.value,
+                  duration
+                })
+              }
             } else {
-              error.value = `通道"${props.channelName}"暂无二维码`
+              error.value = `未找到通道"${props.channelName}"对应的二维码`
               
               // 记录失败历史
               const duration = Date.now() - startTime
@@ -206,27 +251,11 @@ const fetchQrCode = async () => {
               })
             }
           } else {
-            error.value = `未找到通道"${props.channelName}"对应的二维码`
-            
-            // 记录失败历史
-            const duration = Date.now() - startTime
-            historyStore.addHistory({
-              operation: '获取通道二维码',
-              params: {
-                channelName: props.channelName,
-                channelType: props.channelType,
-                lotId: props.lotId
-              },
-              result: 'error',
-              message: error.value,
-              duration
-            })
+            throw new Error(responseData.msg || '获取二维码失败')
           }
         } else {
-          throw new Error(responseData.msg || '获取二维码失败')
+          throw new Error(result.resultMsg || '获取二维码失败')
         }
-      } else {
-        throw new Error(result.resultMsg || '获取二维码失败')
       }
     }
   } catch (err: any) {
@@ -277,8 +306,10 @@ const handleRefresh = async () => {
   qrCodeUrl.value = ''
   imgKey.value++
   
-  // 刷新缓存数据
-  await envStore.refreshQrCodeData()
+  // 刷新缓存数据（仅通道码需要，场内码不需要缓存）
+  if (!props.isClosePark) {
+    await envStore.refreshQrCodeData()
+  }
   // 重新获取二维码
   await fetchQrCode()
 }
@@ -296,7 +327,7 @@ const handleDownload = async () => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${props.channelName}_二维码.png`
+    link.download = props.isClosePark ? '场内码_二维码.png' : `${props.channelName}_二维码.png`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -306,6 +337,9 @@ const handleDownload = async () => {
     ElMessage.error('下载失败，请稍后重试或右键图片另存为')
   }
 }
+
+// 车场名展示（用于场内码标题）
+const lotDisplayName = computed(() => envStore.currentLotConfig?.name || props.lotId || '当前车场')
 
 // 关闭弹窗
 const handleClose = () => {

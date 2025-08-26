@@ -8,7 +8,8 @@ import type {
   NodeStatusRequest,
   NodeStatusResponse,
   ChangeNodeStatusRequest,
-  GetChannelQrPicResponse
+  GetChannelQrPicResponse,
+  GetCloseParkCodeResponse
 } from '../types'
 
 // 创建axios实例
@@ -161,6 +162,15 @@ export const parkingLotApi = {
   // 重新加载配置
   reloadConfig: async (): Promise<ApiResponse> => {
     const response = await api.post('/config/reload')
+    return response.data
+  }
+}
+
+// 场内码API
+export const closeParkApi = {
+  // 获取场内码（固定码）
+  getCloseParkCode: async (params: { lot_id: string }): Promise<ApiResponse<GetCloseParkCodeResponse>> => {
+    const response = await api.get('/getCloseParkCode', { params })
     return response.data
   }
 }

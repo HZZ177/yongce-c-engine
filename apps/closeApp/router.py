@@ -433,6 +433,20 @@ async def get_channel_qr_pic(
         return success_response(data=result)
     except Exception as e:
         logger.error(f"获取通道二维码图片失败: {e}")
+        return error_response(data=f"获取通道二维码图片失败: {e}")
+
+
+@close_dsp_router.get("/getCloseParkCode", description="获取封闭车场-场内码", summary="获取封闭车场-场内码")
+async def get_channel_qr_pic(
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477")
+):
+    """获取封闭车场的场内码"""
+    try:
+        result = await base_service.get_close_park_code(lot_id)
+        return success_response(data=result)
+    except Exception as e:
+        logger.error(f"获取封闭场内码失败: {e}")
+        return error_response(data=f"获取封闭场内码失败: {e}")
 
 
 # ==================== 日志监控相关接口 ====================
