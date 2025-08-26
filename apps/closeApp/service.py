@@ -11,8 +11,6 @@ import random
 from datetime import datetime
 import traceback
 from core.logger import logger
-from fastapi import HTTPException
-
 from fastapi import WebSocket
 
 from apps.closeApp.device_manager import device_manager
@@ -39,14 +37,14 @@ class BaseService:
             res = self.http_client.post(url=url, headers=headers, data=json.dumps(data))
             if res.status_code != 200:
                 logger.error(f"统一平台登录失败: {res.text}")
-                raise HTTPException(status_code=500, detail=f"统一平台登录失败: {res.text}")
+                raise Exception(f"统一平台登录失败: {res.text}")
             else:
                 kt_token = res.json()['data']['ktToken']
                 logger.debug(f"统一平台登录成功，获取token: {kt_token}")
                 return kt_token
         except Exception as e:
             logger.error(f"统一平台登录失败: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"统一平台登录失败: {str(e)}")
+            raise Exception(f"统一平台登录失败: {str(e)}")
 
     async def yongce_pro_admin_login(self, lot_id):
         """永策PRO平台后台登录"""
@@ -61,7 +59,7 @@ class BaseService:
             top_group_id = self.config.get_yongce_pro_config().get("top_group_id").get("prod")
             base_url = self.config.get_yongce_pro_config().get("domain").get("prod")
         else:
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
         url = base_url + "/user-center/api/login/login"
         h = hashlib.md5()
@@ -111,7 +109,7 @@ class BaseService:
         :return: 在场车辆信息
         """
         if not self.config.is_supported_lot_id(lot_id):
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
         kt_token = await self.get_kt_token(lot_id)
 
@@ -137,20 +135,20 @@ class BaseService:
         elif lot_id in self.config.get_prod_support_lot_ids():
             url = self.config.get_car_come_domain().get("prod")
         else:
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
         try:
             response = self.http_client.post(url=url, headers=headers, json=data, timeout=5)
             if response.status_code != 200:
-                raise HTTPException(status_code=500, detail="查询在场接口出错！")
+                raise Exception("查询在场接口出错！")
             return response.json()
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"查询在场车辆失败: {str(e)}")
+            raise Exception(f"查询在场车辆失败: {str(e)}")
 
     async def get_channel_qr_pic(self, lot_id):
         """获取车场通道二维码图片"""
         if not self.config.is_supported_lot_id(lot_id):
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
         yongce_pro_token = await self.get_yongce_pro_admin_token(lot_id)
         headers = {
@@ -168,15 +166,15 @@ class BaseService:
         elif lot_id in self.config.get_prod_support_lot_ids():
             base_url = self.config.get_yongce_pro_config().get("domain").get("prod")
         else:
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
         url = base_url + "/admin-vehicle-owner/lotSpace/nodeCode/list"
         try:
             response = self.http_client.post(url=url, headers=headers, json=data, timeout=5)
             if response.status_code != 200:
-                raise HTTPException(status_code=500, detail=f"获取车场通道二维码图片失败！返回信息{response.text}")
+                raise Exception(f"获取车场通道二维码图片失败！返回信息{response.text}")
             return response.json()
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"获取车场通道二维码图片失败: {str(e)}")
+            raise Exception(f"获取车场通道二维码图片失败: {str(e)}")
 
     async def get_close_park_code(self, lot_id):
         """获取封闭车场-场内码"""
@@ -199,15 +197,15 @@ class BaseService:
         elif lot_id in self.config.get_prod_support_lot_ids():
             base_url = self.config.get_yongce_pro_config().get("domain").get("prod")
         else:
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
         url = base_url + "/admin-vehicle-owner/lotSpace/lot/list"
         try:
             response = self.http_client.post(url=url, headers=headers, json=data, timeout=5)
             if response.status_code != 200:
-                raise HTTPException(status_code=500, detail=f"获取车场场内码失败！返回信息{response.text}")
+                raise Exception(f"获取车场场内码失败！返回信息{response.text}")
             return response.json()
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"获取车场场内码失败: {str(e)}")
+            raise Exception(f"获取车场场内码失败: {str(e)}")
 
 
 class DeviceService(BaseService):
@@ -302,7 +300,7 @@ class DeviceService(BaseService):
         elif lot_id in self.config.get_prod_support_lot_ids():
             url = self.config.get_prod_cloud_channel_query_url()
         else:
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
         headers = {
             "content-type": "application/json",
@@ -318,7 +316,7 @@ class DeviceService(BaseService):
             device_data = node_status.json().get("data")
             return device_data
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"查询通道设备状态失败: {str(e)}")
+            raise Exception(f"查询通道设备状态失败: {str(e)}")
 
     async def change_node_status(self, cloud_kt_token, lot_id, node_ids, status):
         """修改通道状态"""
@@ -327,7 +325,7 @@ class DeviceService(BaseService):
         elif lot_id in self.config.get_prod_support_lot_ids():
             url = self.config.get_prod_cloud_channel_change_url()
         else:
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
         headers = {
             "content-type": "application/json",
@@ -345,7 +343,7 @@ class DeviceService(BaseService):
                 raise Exception(f"修改通道状态失败，响应: {change_res.text}")
             return res_json
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"查询通道设备状态失败: {str(e)}")
+            raise Exception(f"查询通道设备状态失败: {str(e)}")
 
     async def get_device_status(self, device_ips: List[str], ttl_seconds: int = 12) -> List[Dict]:
         """查询设备真实在线状态（重构后）"""
@@ -494,7 +492,7 @@ class PaymentService(BaseService):
         elif lot_id in self.config.get_prod_support_lot_ids():
             base_url = self.config.get_yongce_pro_domain().get("prod")
         else:
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
         url = base_url + "nkc/fee-simulate/query-fee"
         headers = {
@@ -514,7 +512,7 @@ class PaymentService(BaseService):
         res = self.http_client.post(url=url, headers=headers, data=data, timeout=5)
         if res.status_code != 200:
             logger.error(f"查询车场支付订单接口错误！错误返回为{res.text}")
-            raise HTTPException(status_code=500, detail=f"查询车场支付订单接口错误！错误返回为{res.text}")
+            raise Exception(f"查询车场支付订单接口错误！错误返回为{res.text}")
         else:
             res_dic = res.json()
 
@@ -537,7 +535,7 @@ class PaymentService(BaseService):
         elif lot_id in self.config.get_prod_support_lot_ids():
             base_url = self.config.get_yongce_pro_domain().get("prod")
         else:
-            raise HTTPException(status_code=400, detail=f"暂不支持车场【{lot_id}】")
+            raise Exception(f"暂不支持车场【{lot_id}】")
 
         car_no = car_no
         lot_id = lot_id
@@ -602,11 +600,11 @@ class LogMonitorService(BaseService):
         """获取指定车场服务器上的日志文件列表"""
         log_config = self.config.get_log_monitor_config(lot_id)
         if not log_config or not log_config.get('enabled'):
-            raise HTTPException(status_code=404, detail="该车场未启用日志监控功能")
+            raise Exception("该车场未启用日志监控功能")
 
         server_ip = self.config.get_parking_lot_by_id(lot_id).get('server_ip')
         if not server_ip:
-            raise HTTPException(status_code=404, detail="未找到该车场的服务器IP")
+            raise Exception("未找到该车场的服务器IP")
 
         ssh_manager = SSHManager(
             hostname=server_ip,
@@ -620,14 +618,14 @@ class LogMonitorService(BaseService):
             command = f"ls -1 {log_config['log_directory']}"
             output, error, exit_status = ssh_manager.execute_command(command)
             if exit_status != 0:
-                raise HTTPException(status_code=500, detail=f"获取日志文件列表失败: {error}")
+                raise Exception(f"获取日志文件列表失败: {error}")
 
             files = [f for f in output.strip().split('\n') if f]  # 过滤掉空行
             files.sort(reverse=True)  # 按名称倒序排序
             return files
         except Exception as e:
             logger.error(f"[LogMonitor] 获取日志文件列表失败: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise Exception(str(e))
         finally:
             ssh_manager.disconnect()
 

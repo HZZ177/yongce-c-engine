@@ -2,7 +2,7 @@ import time
 import asyncio
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query, WebSocket
+from fastapi import APIRouter, Query, WebSocket
 
 from core.logger import logger
 
@@ -459,8 +459,6 @@ async def list_log_files(
     try:
         files = log_monitor_service.list_log_files(lot_id)
         return success_response(data=files)
-    except HTTPException as e:
-        return error_response(message=e.detail)
     except Exception as e:
         logger.error(f"获取日志文件列表失败: {e}")
         return error_response(message=f"获取日志文件列表失败: {str(e)}")
