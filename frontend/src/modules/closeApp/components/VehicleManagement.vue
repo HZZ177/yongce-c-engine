@@ -461,6 +461,11 @@ const handleCarOut = async () => {
         message: typeof result.data === 'string' ? result.data : JSON.stringify(result.data),
         duration
       })
+
+      // 出场成功后查询在场车辆（无牌车跳过）
+      if (!isUnlicensed) {
+        await performQueryOnPark(form.carNo, true)
+      }
     } else {
       throw new Error(result.resultMsg || '出场失败')
     }
