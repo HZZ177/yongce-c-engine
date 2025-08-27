@@ -95,18 +95,12 @@
         <div class="device-header">
           <div class="section-title">设备管理</div>
           <div class="device-actions">
-            <el-button type="primary" size="small" @click="handleSetCloudToken">
-              设置云助手Token
-            </el-button>
-            <StandardTooltip
-              content="需要在运维中心手动代理登录到对应车场的云助手获取一下"
-            />
             <el-button 
               type="success" 
               size="small" 
               @click="handleRefreshNodeStatus"
               :loading="envStore.nodeStatusLoading"
-              :disabled="!envStore.cloudKtToken || !envStore.currentLotId"
+              :disabled="!envStore.currentLotId"
             >
               刷新长抬状态
             </el-button>
@@ -171,7 +165,7 @@
                     :model-value="getLongLiftStatus(device)"
                     :active-value="'1'"
                     :inactive-value="'0'"
-                    :disabled="!envStore.cloudKtToken || !envStore.currentLotId || deviceLoadingStates[device.ip] || !device.status"
+                    :disabled="!envStore.currentLotId || deviceLoadingStates[device.ip] || !device.status"
                     size="default"
                     @change="handleLongLiftStatusChange(device, $event)"
                   />
@@ -182,7 +176,7 @@
                 :model-value="getLongLiftStatus(device)"
                 :active-value="'1'"
                 :inactive-value="'0'"
-                :disabled="!envStore.cloudKtToken || !envStore.currentLotId || deviceLoadingStates[device.ip]"
+                :disabled="!envStore.currentLotId || deviceLoadingStates[device.ip]"
                 size="default"
                 @change="handleLongLiftStatusChange(device, $event)"
               />
@@ -331,8 +325,8 @@ const getLongLiftStatus = (device: any): string => {
 
 // 处理长抬状态变更
 const handleLongLiftStatusChange = async (device: any, newStatus: string) => {
-  if (!envStore.cloudKtToken || !envStore.currentLotId) {
-    ElMessage.warning('请先设置云助手Token并选择车场')
+  if (!envStore.currentLotId) {
+    ElMessage.warning('请先选择车场')
     return
   }
   
@@ -349,7 +343,6 @@ const handleLongLiftStatusChange = async (device: any, newStatus: string) => {
   
   try {
     const result = await nodeApi.changeNodeStatus({
-      cloud_kt_token: envStore.cloudKtToken,
       lot_id: envStore.currentLotId,
       node_ids: node.nodeId.toString(),
       status: parseInt(newStatus)
@@ -432,28 +425,10 @@ const handleViewCloseParkCode = () => {
   qrCodeDialogVisible.value = true
 }
 
-// 设置云助手Token
-const handleSetCloudToken = async () => {
-  try {
-    const { value } = await ElMessageBox.prompt('请输入云助手Token（cloud_kt_token）', '设置云助手Token', {
-      inputValue: envStore.cloudKtToken,
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      inputPlaceholder: '请输入cloud_kt_token'
-    })
-    envStore.setCloudKtToken(value)
-    ElMessage.success('云助手Token已保存')
-    // 立即刷新一次节点状态
-    await envStore.fetchNodeStatus()
-  } catch {
-    // 用户取消
-  }
-}
-
 // 刷新长抬状态
 const handleRefreshNodeStatus = async () => {
-  if (!envStore.cloudKtToken || !envStore.currentLotId) {
-    ElMessage.warning('请先设置云助手Token并选择车场')
+  if (!envStore.currentLotId) {
+    ElMessage.warning('请先选择车场')
     return
   }
   
@@ -524,7 +499,6 @@ const handleRefreshNodeStatus = async () => {
         operation: '刷新长抬状态',
         params: { 
           lotId: envStore.currentLotId, 
-          cloudKtToken: envStore.cloudKtToken,
           deviceIps: deviceIps,
           deviceOnResult: typeof deviceOnResult.data === 'string' ? deviceOnResult.data : JSON.stringify(deviceOnResult.data)
         },
@@ -557,7 +531,6 @@ const handleRefreshNodeStatus = async () => {
         operation: '刷新长抬状态',
         params: { 
           lotId: envStore.currentLotId, 
-          cloudKtToken: envStore.cloudKtToken,
           deviceIps: deviceIps,
           deviceOnResult: typeof deviceOnResult.data === 'string' ? deviceOnResult.data : JSON.stringify(deviceOnResult.data)
         },
@@ -597,7 +570,6 @@ const handleRefreshNodeStatus = async () => {
         operation: '刷新长抬状态',
         params: { 
           lotId: envStore.currentLotId, 
-          cloudKtToken: envStore.cloudKtToken,
           error: errorMsg
         },
         result: 'error',
@@ -897,7 +869,7 @@ const handleParkingLotRefresh = async () => {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  margin-left: 220px;
+  margin-left: 120px;
   display: flex;
   gap: 8px;
 }

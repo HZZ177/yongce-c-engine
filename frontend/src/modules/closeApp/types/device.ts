@@ -17,7 +17,6 @@ export interface DeviceOnOffRequest {
 // 节点长抬状态请求
 export interface NodeStatusRequest {
   lot_id: string
-  cloud_kt_token: string
 }
 
 export interface NodeStatusItem {
@@ -39,7 +38,6 @@ export interface NodeStatusResponse {
 
 // 节点长抬状态变更请求
 export interface ChangeNodeStatusRequest {
-  cloud_kt_token: string
   lot_id: string
   node_ids: string
   status: number

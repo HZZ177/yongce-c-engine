@@ -375,12 +375,11 @@ async def get_default_channel_name(device_ip: str):
 
 @close_dsp_router.get("/nodeStatus", description="查询通道状态接口", summary="查询通道状态接口")
 async def node_status(
-    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
-    cloud_kt_token: str = Query(..., description="云助手token，需要自己代理到云助手获取一下")
+    lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477")
 ):
     """查询通道状态接口"""
     try:
-        all_status_list = await device_service.get_all_node_status(lot_id, cloud_kt_token)
+        all_status_list = await device_service.get_all_node_status(lot_id)
         return success_response(data=convert_pydantic_model(all_status_list))
     except Exception as e:
         logger.error(f"查询通道状态失败: {e}")
@@ -389,14 +388,13 @@ async def node_status(
 
 @close_dsp_router.get("/changeNodeStatus", description="通道长抬状态变更接口", summary="通道长抬状态变更接口")
 async def change_node_status(
-        cloud_kt_token: str = Query(..., description="云助手token，需要自己代理到云助手获取一下"),
         lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
         node_ids: str = Query(..., description="通道ID列表"),
         status: int = Query(..., description="通道状态 0:关闭长抬，1:打开长抬"),
 ):
     """通道长抬状态变更接口"""
     try:
-        res = await device_service.change_node_status(cloud_kt_token, lot_id, node_ids, status)
+        res = await device_service.change_node_status(lot_id, node_ids, status)
         return success_response(data=convert_pydantic_model(res))
     except Exception as e:
         logger.error(f"通道长抬状态变更失败: {e}")

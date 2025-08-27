@@ -69,15 +69,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
     }
   }
 
-  // 云助手token存储
-  const getStoredCloudKtToken = (): string => {
-    return localStorage.getItem('yongce-cloud-kt-token') || ''
-  }
-  const cloudKtToken = ref<string>(getStoredCloudKtToken())
-  const setCloudKtToken = (token: string) => {
-    cloudKtToken.value = token
-    localStorage.setItem('yongce-cloud-kt-token', token)
-  }
+
 
   // 节点状态数据
   const nodeStatus = ref<any[]>([])
@@ -125,7 +117,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
 
   // 获取节点状态
   const fetchNodeStatus = async () => {
-    if (!currentLotId.value || !cloudKtToken.value) {
+    if (!currentLotId.value) {
       return
     }
     
@@ -133,8 +125,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
     try {
       const response = await axios.get('/closeApp/nodeStatus', {
         params: {
-          lot_id: currentLotId.value,
-          cloud_kt_token: cloudKtToken.value
+          lot_id: currentLotId.value
         }
       })
       
@@ -157,10 +148,6 @@ export const useEnvironmentStore = defineStore('environment', () => {
 
   // 手动刷新节点状态（供外部调用）
   const refreshNodeStatus = async () => {
-    if (!cloudKtToken.value) {
-      console.warn('云助手Token未设置，无法获取节点状态')
-      return
-    }
     if (!currentLotId.value) {
       console.warn('未选择车场，无法获取节点状态')
       return
@@ -215,9 +202,7 @@ export const useEnvironmentStore = defineStore('environment', () => {
     qrCodeDataLoaded.value = false
 
     // 切换车场后重新获取节点状态
-    if (cloudKtToken.value) {
-      fetchNodeStatus()
-    }
+    fetchNodeStatus()
     
     // 车场切换完成后立即查询设备状态，避免等待轮询延迟
     const currentLot = lotConfigs.value[currentEnv.value]?.find(lot => lot.id === lotId)
@@ -352,8 +337,8 @@ export const useEnvironmentStore = defineStore('environment', () => {
         localStorage.removeItem('yongce-current-lot-id')
       }
       
-      // 配置加载完成后，如果有token则获取节点状态
-      if (cloudKtToken.value && currentLotId.value) {
+      // 配置加载完成后，获取节点状态
+      if (currentLotId.value) {
         await fetchNodeStatus()
       }
       
@@ -518,7 +503,6 @@ export const useEnvironmentStore = defineStore('environment', () => {
     currentLotId,
     deviceStatus,
     channelNameMap,
-    cloudKtToken,
     nodeStatus,
     nodeStatusLoading,
     configLoaded,
@@ -542,7 +526,6 @@ export const useEnvironmentStore = defineStore('environment', () => {
     resetDeviceStatus,
     setChannelName,
     getChannelName,
-    setCloudKtToken,
     fetchNodeStatus,
     loadConfig,
     refreshNodeStatus,

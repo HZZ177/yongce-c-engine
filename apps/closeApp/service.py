@@ -346,7 +346,7 @@ class DeviceService(BaseService):
                 resultCode=500
             )
 
-    async def get_all_node_status(self, lot_id, cloud_kt_token):
+    async def get_all_node_status(self, lot_id):
         """查询通道设备状态"""
         if lot_id in self.config.get_test_support_lot_ids():
             url = self.config.get_test_cloud_channel_query_url()
@@ -355,9 +355,10 @@ class DeviceService(BaseService):
         else:
             raise Exception(f"暂不支持车场【{lot_id}】")
 
+        unity_token = await self.get_unity_token(lot_id)
         headers = {
             "content-type": "application/json",
-            "kt-token": cloud_kt_token
+            "kt-token": unity_token
         }
         data = {
             "nodeType": "-1"
@@ -371,7 +372,7 @@ class DeviceService(BaseService):
         except Exception as e:
             raise Exception(f"查询通道设备状态失败: {str(e)}")
 
-    async def change_node_status(self, cloud_kt_token, lot_id, node_ids, status):
+    async def change_node_status(self, lot_id, node_ids, status):
         """修改通道状态"""
         if lot_id in self.config.get_test_support_lot_ids():
             url = self.config.get_test_cloud_channel_change_url()
@@ -380,9 +381,10 @@ class DeviceService(BaseService):
         else:
             raise Exception(f"暂不支持车场【{lot_id}】")
 
+        unity_token = await self.get_unity_token(lot_id)
         headers = {
             "content-type": "application/json",
-            "kt-token": cloud_kt_token
+            "kt-token": unity_token
         }
         data = {
             "nodeIds": node_ids,
