@@ -1,12 +1,3 @@
-car_come_domain:
-  prod: https://ipark.keytop.cn/nkc/carCome/findCarComePage
-  test: https://ipark-test.keytop.cn/nkc/carCome/findCarComePage
-cloud_channel_change_url:
-  prod: https://park.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus
-  test: https://ts.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus
-cloud_channel_query_url:
-  prod: https://park.keytop.cn/kos_visitor/service/nodeController/queryNodeList
-  test: https://ts.keytop.cn/kos_visitor/service/nodeController/queryNodeList
 device:
   prod: &id001
     in_device: 192.168.24.117
@@ -55,9 +46,7 @@ support_server_ips:
   - 192.168.0.236
   test:
   - 192.168.0.183
-unity_login_domain:
-  prod: http://park.keytop.cn
-  test: https://ts.keytop.cn
+# 永策Pro
 yongce_pro:
   domain:
     prod: https://yongce-zshjcs.keytop.cn
@@ -65,6 +54,20 @@ yongce_pro:
   top_group_id:
     prod: 38f188755bca474b896bb7e390589c40
     test: 92b9cc14ba134fc4a0fe74cbf4ef5af2
-yongce_pro_domain:
+# 速停车
+unity_domain:
+  prod: http://park.keytop.cn
+  test: https://ts.keytop.cn
+# 科拓大脑
+keytop_brain_domain:
   prod: http://ipark.keytop.cn/
   test: https://s2-test.keytop.cn/
+car_come_domain:
+  prod: https://ipark.keytop.cn/nkc/carCome/findCarComePage
+  test: https://ipark-test.keytop.cn/nkc/carCome/findCarComePage
+cloud_channel_change_url:
+  prod: https://park.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus
+  test: https://ts.keytop.cn/kos_visitor/service/nodeController/changeNodeStatus
+cloud_channel_query_url:
+  prod: https://park.keytop.cn/kos_visitor/service/nodeController/queryNodeList
+  test: https://ts.keytop.cn/kos_visitor/service/nodeController/queryNodeList

@@ -53,13 +53,13 @@ class Config:
         allowed_lot_ids = self.get_test_support_lot_ids() + self.get_prod_support_lot_ids()
         return lot_id in allowed_lot_ids
 
-    def get_kt_unity_login_domain(self) -> dict:
-        """获取统一平台登录域名"""
-        return self.config.get("unity_login_domain", {})
+    def get_unity_domain(self) -> dict:
+        """获取速停车域名"""
+        return self.config.get("unity_domain", {})
 
-    def get_yongce_pro_domain(self) -> dict:
-        """获取永策平台域名"""
-        return self.config.get("yongce_pro_domain", {})
+    def get_keytop_brain_domain(self) -> dict:
+        """获取科拓大脑域名"""
+        return self.config.get("keytop_brain_domain", {})
 
     def get_test_cloud_channel_query_url(self) -> str:
         """获取测试环境云助手通道查询接口"""

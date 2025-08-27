@@ -206,7 +206,7 @@ async def get_pay_info(
     lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477")
 ):
     """获取支付订单信息接口"""
-    kt_token = await pay_service.get_kt_token(lot_id)
+    kt_token = await pay_service.get_unity_token(lot_id)
     res = await pay_service.get_park_pay_info(kt_token, lot_id, car_no)
     return success_response(data=res)
 

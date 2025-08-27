@@ -1,5 +1,8 @@
 import hashlib
 import uuid
+import json
+
+import requests
 
 from apps.roadApp.config import RoadConfig
 from core.requests import RequestClient
@@ -138,8 +141,8 @@ class RoadService:
 
     async def yongce_pro_admin_login(self, lot_id):
         """永策PRO平台后台登录"""
-        phone = "18202823092"
-        password = "as..101026"
+        phone = "18227639229"
+        password = "Keytop@123"
         img_code = "9078"
         img_code_key = "096b514fxxxxxxxxxxxxx"
         if lot_id in self.config.get_test_support_lot_ids():
@@ -179,9 +182,43 @@ class RoadService:
 
     async def get_yongce_pro_admin_token(self, lot_id):
         """获取永策PRO平台后台登录token"""
+        try:
+            with open('core/token.json', 'r') as f:
+                token_data = json.load(f)
+                token = token_data.get('yongcePro_token')
+        except (FileNotFoundError, json.JSONDecodeError):
+            token = None
+
+        if token:
+            # 验证token有效性
+            if lot_id in self.config.get_test_support_lot_ids():
+                base_url = self.config.get_yongce_pro_domain().get("test")
+            elif lot_id in self.config.get_prod_support_lot_ids():
+                base_url = self.config.get_yongce_pro_domain().get("prod")
+            else:
+                raise Exception(f"暂不支持车场【{lot_id}】")
+            url = base_url + "/user-center/mgt/user/getLoginUser"
+            headers = {"Token": token}
+            try:
+                # 这个验证接口不用封装的，否则返回日志太多了，只用于验证登录是否失效，不关心返回内容
+                res = requests.get(url=url, headers=headers)
+                if res.status_code == 200 and res.json().get("resultCode") != 401:
+                    logger.info("使用缓存的yongcePro_token")
+                    return token
+            except Exception as e:
+                logger.error(f"验证token失败: {e}")
+                raise Exception(f"验证token失败: {e}")
+
+        # token失效或不存在，重新登录获取
+        logger.info("缓存token失效或不存在，重新登录获取token")
         login_res = await self.yongce_pro_admin_login(lot_id)
-        token = login_res.get("data").get("token")
-        return token
+        new_token = login_res.get("data").get("token")
+
+        # 更新token.json
+        with open('core/token.json', 'w') as f:
+            json.dump({'yongcePro_token': new_token}, f)
+
+        return new_token
 
     async def get_road_list(self, lot_id):
         """获取车场路段列表"""

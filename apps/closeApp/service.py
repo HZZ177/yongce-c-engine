@@ -2,6 +2,9 @@ import asyncio
 import hashlib
 import json
 from typing import List, Dict
+
+import requests
+
 from core.requests import RequestClient
 from apps.closeApp.config import Config
 from apps.closeApp.protocol import BusinessProtocol
@@ -31,34 +34,34 @@ class BaseService:
         end_time = today.strftime("%Y-%m-%d 23:59:59")
         return start_time, end_time
 
-    async def get_kt_token(self, lot_id):
-        """获取统一平台登录token"""
+    async def get_unity_token(self, lot_id):
+        """获取速停车登录token"""
         api_url = "/unity/service/open/app/login"
         url = ""
         if lot_id in self.config.get_test_support_lot_ids():
-            url = self.config.get_kt_unity_login_domain().get("test") + api_url
+            url = self.config.get_unity_domain().get("test") + api_url
         elif lot_id in self.config.get_prod_support_lot_ids():
-            url = self.config.get_kt_unity_login_domain().get("prod") + api_url
-        # 统一平台登录
+            url = self.config.get_unity_domain().get("prod") + api_url
+        # 速停车登录
         try:
             headers = {"content-type": "application/json", "kt-lotcodes": lot_id}
             data = {"code": "", "expireDay": 0, "loginWay": "", "mobileCode": "0592", "phone": "19182295006"}
             res = self.http_client.post(url=url, headers=headers, data=json.dumps(data))
             if res.status_code != 200:
-                logger.error(f"统一平台登录失败: {res.text}")
-                raise Exception(f"统一平台登录失败: {res.text}")
+                logger.error(f"速停车登录失败: {res.text}")
+                raise Exception(f"速停车登录失败: {res.text}")
             else:
                 kt_token = res.json()['data']['ktToken']
-                logger.debug(f"统一平台登录成功，获取token: {kt_token}")
+                logger.debug(f"速停车登录成功，获取token: {kt_token}")
                 return kt_token
         except Exception as e:
-            logger.error(f"统一平台登录失败: {traceback.format_exc()}")
-            raise Exception(f"统一平台登录失败: {str(e)}")
+            logger.error(f"速停车登录失败: {traceback.format_exc()}")
+            raise Exception(f"速停车登录失败: {str(e)}")
 
     async def yongce_pro_admin_login(self, lot_id):
         """永策PRO平台后台登录"""
-        phone = "18202823092"
-        password = "as..101026"
+        phone = "18227639229"
+        password = "Keytop@123"
         img_code = "9078"
         img_code_key = "096b514fxxxxxxxxxxxxx"
         if lot_id in self.config.get_test_support_lot_ids():
@@ -98,9 +101,42 @@ class BaseService:
 
     async def get_yongce_pro_admin_token(self, lot_id):
         """获取永策PRO平台后台登录token"""
+        try:
+            with open('core/token.json', 'r') as f:
+                token_data = json.load(f)
+                token = token_data.get('yongcePro_token')
+        except (FileNotFoundError, json.JSONDecodeError):
+            token = None
+
+        if token:
+            # 验证token有效性
+            if lot_id in self.config.get_test_support_lot_ids():
+                base_url = self.config.get_yongce_pro_config().get("domain").get("test")
+            elif lot_id in self.config.get_prod_support_lot_ids():
+                base_url = self.config.get_yongce_pro_config().get("domain").get("prod")
+            else:
+                raise Exception(f"暂不支持车场【{lot_id}】")
+            url = base_url + "/user-center/mgt/user/getLoginUser"
+            headers = {"Token": token}
+            try:
+                # 这个验证接口不用封装的，否则返回日志太多了，只用于验证登录是否失效，不关心返回内容
+                res = requests.get(url=url, headers=headers)
+                if res.status_code == 200 and res.json().get("resultCode") != 401:
+                    logger.info("使用缓存的yongcePro_token")
+                    return token
+            except Exception as e:
+                logger.error(f"验证token失败: {e}")
+                raise Exception(f"验证token失败: {e}")
+
+        # token失效或不存在，重新登录获取
+        logger.info("缓存token失效或不存在，重新登录获取token")
         login_res = await self.yongce_pro_admin_login(lot_id)
-        token = login_res.get("data").get("token")
-        return token
+        new_token = login_res.get("data").get("token")
+
+        # 更新token.json
+        with open('core/token.json', 'w') as f:
+            json.dump({'yongcePro_token': new_token}, f)
+        return new_token
 
     async def get_on_park(
             self,
@@ -128,7 +164,7 @@ class BaseService:
         if not self.config.is_supported_lot_id(lot_id):
             raise Exception(f"暂不支持车场【{lot_id}】")
 
-        kt_token = await self.get_kt_token(lot_id)
+        kt_token = await self.get_unity_token(lot_id)
 
         data = {
             "lotCode": lot_id,
@@ -505,9 +541,9 @@ class PaymentService(BaseService):
         """
         logger.info(f"开始查询车场支付订单信息: {lot_id} - {car_no}")
         if lot_id in self.config.get_test_support_lot_ids():
-            base_url = self.config.get_yongce_pro_domain().get("test")
+            base_url = self.config.get_keytop_brain_domain().get("test")
         elif lot_id in self.config.get_prod_support_lot_ids():
-            base_url = self.config.get_yongce_pro_domain().get("prod")
+            base_url = self.config.get_keytop_brain_domain().get("prod")
         else:
             raise Exception(f"暂不支持车场【{lot_id}】")
 
@@ -548,16 +584,16 @@ class PaymentService(BaseService):
         """支付订单"""
         logger.info(f"开始支付车场订单")
         if lot_id in self.config.get_test_support_lot_ids():
-            base_url = self.config.get_yongce_pro_domain().get("test")
+            base_url = self.config.get_keytop_brain_domain().get("test")
         elif lot_id in self.config.get_prod_support_lot_ids():
-            base_url = self.config.get_yongce_pro_domain().get("prod")
+            base_url = self.config.get_keytop_brain_domain().get("prod")
         else:
             raise Exception(f"暂不支持车场【{lot_id}】")
 
         car_no = car_no
         lot_id = lot_id
         # 获取token
-        kt_token = await self.get_kt_token(lot_id)
+        kt_token = await self.get_unity_token(lot_id)
         # 查询订单信息
         order_info = await self.get_park_pay_info(kt_token, lot_id, car_no)
         if order_info != "没有该车辆的支付订单信息！":
