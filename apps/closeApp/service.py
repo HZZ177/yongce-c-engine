@@ -22,6 +22,15 @@ class BaseService:
         self.config = Config()
         self.http_client = RequestClient()
 
+    def _get_today_time_range(self) -> tuple:
+        """获取今天的时间范围
+        :return: (开始时间, 结束时间) 格式: ("2024-01-01 00:00:00", "2024-01-01 23:59:59")
+        """
+        today = datetime.now()
+        start_time = today.strftime("%Y-%m-%d 00:00:00")
+        end_time = today.strftime("%Y-%m-%d 23:59:59")
+        return start_time, end_time
+
     async def get_kt_token(self, lot_id):
         """获取统一平台登录token"""
         api_url = "/unity/service/open/app/login"
@@ -97,8 +106,8 @@ class BaseService:
             self,
             lot_id: str,
             car_no: str,
-            start_time: str = datetime.now().strftime("%Y-%m-%d 00:00:00"),
-            end_time: str = datetime.now().strftime("%Y-%m-%d 23:59:59")
+            start_time: str = None,
+            end_time: str = None
     ) -> dict:
         """
         查询在场车辆
@@ -108,6 +117,14 @@ class BaseService:
         :param end_time: 结束时间（可选，默认当天23:59:59）
         :return: 在场车辆信息
         """
+        # 处理默认时间参数
+        if start_time is None or end_time is None:
+            default_start, default_end = self._get_today_time_range()
+            if start_time is None:
+                start_time = default_start
+            if end_time is None:
+                end_time = default_end
+            
         if not self.config.is_supported_lot_id(lot_id):
             raise Exception(f"暂不支持车场【{lot_id}】")
 

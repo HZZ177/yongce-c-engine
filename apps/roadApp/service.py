@@ -26,6 +26,12 @@ class RoadService:
 
         park_code = self.config.get_parking_road_lot_id(request.lot_id)
 
+        # 处理默认时间参数
+        in_time = request.in_time
+        if in_time is None:
+            from datetime import datetime
+            in_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         header = {
             "Content-Type": "application/json",
         }
@@ -36,7 +42,7 @@ class RoadService:
             "parkspaceCode": request.park_space_code,
             "carType": request.car_type,
             "plateColor": request.plate_color,
-            "inTime": request.in_time,
+            "inTime": in_time,
             "source": request.source,
             "eventId": str(uuid.uuid4()),
         }
@@ -63,6 +69,12 @@ class RoadService:
 
         park_code = self.config.get_parking_road_lot_id(request.lot_id)
 
+        # 处理默认时间参数
+        in_time = request.in_time
+        if in_time is None:
+            from datetime import datetime
+            in_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         header = {
             "Content-Type": "application/json",
         }
@@ -73,7 +85,7 @@ class RoadService:
             "parkspaceCode": request.park_space_code,
             "carType": request.car_type,
             "plateColor": request.plate_color,
-            "inTime": request.in_time,
+            "inTime": in_time,
             "source": request.source,
             "eventId": str(uuid.uuid4()),
         }

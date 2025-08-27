@@ -14,7 +14,7 @@ class RoadCarInOutRequest(BaseModel):
     car_no: str = Field("", description="车牌号")
     car_type: int = Field(default=1, description="车辆类型 0小型车 1中型车 2大型车 3新能源车 4特殊车辆 5非机动车 6摩托车 7三轮车 8新能源货车")
     plate_color: str = Field(default="蓝", description="车牌颜色，中文")
-    in_time: str = Field(default=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), description="入场时间，非必填，不填默认当前时间")
+    in_time: str = Field(default=None, description="入场时间，非必填，不填默认当前时间")
     source: int = Field(default=0, description="车辆来源，不填默认pos机 0:POS机 1:地磁 2:相机 3:web端 4:视频桩 5:移动端 6:巡逻车")
 
 

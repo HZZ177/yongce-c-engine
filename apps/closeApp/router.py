@@ -177,8 +177,8 @@ async def car_out(
 async def get_on_park(
     lot_id: str = Query(..., description="车场ID，测试环境280025535，灰度280030477"),
     car_no: str = Query(..., description="车牌号"),
-    start_time: str = Query(default=datetime.now().strftime("%Y-%m-%d 00:00:00"), description="开始时间，非必填，不填默认当天00:00:00"),
-    end_time: str = Query(default=datetime.now().strftime("%Y-%m-%d 23:59:59"), description="结束时间，非必填，不填默认当天23:59:59")
+    start_time: str = Query(default=None, description="开始时间，非必填，不填默认当天00:00:00"),
+    end_time: str = Query(default=None, description="结束时间，非必填，不填默认当天23:59:59")
 ):
     """
     查询在场车辆

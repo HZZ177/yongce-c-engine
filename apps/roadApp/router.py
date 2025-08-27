@@ -35,7 +35,7 @@ async def car_in(
     car_no: str = Query("", description="车牌号"),
     car_type: int = Query(default=0, description="车辆类型 0:小型车 1:中型车 2:大型车 3:新能源车 4:特殊车辆 5:非机动车 6:摩托车 7:三轮车 8:新能源货车"),
     plate_color: str = Query(default="蓝", description="车牌颜色，中文"),
-    in_time: str = Query(default=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), description="入场时间，非必填，不填默认当前时间"),
+    in_time: str = Query(default=None, description="入场时间，非必填，不填默认当前时间"),
     source: int = Query(default=0, description="车辆来源，不填默认pos机 0:POS机 1:地磁 2:相机 3:web端 4:视频桩 5:移动端 6:巡逻车"),
 ):
     """路侧车辆入场接口"""
@@ -65,7 +65,7 @@ async def car_out(
     car_no: str = Query("", description="车牌号"),
     car_type: int = Query(default=0, description="车辆类型 0:小型车 1:中型车 2:大型车 3:新能源车 4:特殊车辆 5:非机动车 6:摩托车 7:三轮车 8:新能源货车"),
     plate_color: str = Query(default="蓝", description="车牌颜色，中文"),
-    in_time: str = Query(default=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), description="入场时间，非必填，不填默认当前时间"),
+    in_time: str = Query(default=None, description="入场时间，非必填，不填默认当前时间"),
     source: int = Query(default=0, description="车辆来源，不填默认pos机 0:POS机 1:地磁 2:相机 3:web端 4:视频桩 5:移动端 6:巡逻车"),
 ):
     """路侧车辆出场接口"""
