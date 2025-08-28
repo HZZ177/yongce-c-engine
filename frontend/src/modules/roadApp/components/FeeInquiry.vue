@@ -168,7 +168,7 @@ const loadRoadList = async () => {
 
   try {
     const params = { lot_id: envStore.currentLotId }
-    const result = await roadVehicleApi.roadList(envStore.currentLotId)
+    const result = await roadVehicleApi.roadPage(envStore.currentLotId)
     const handleResult = ResponseHandler.handleResponse(result, '', '加载路段列表失败', false)
 
     // 记录操作历史
@@ -183,8 +183,8 @@ const loadRoadList = async () => {
       lotName: envStore.getCurrentLotName()
     })
 
-    if (handleResult.success && Array.isArray(result.data)) {
-      roadList.value = result.data
+    if (handleResult.success && result.data && Array.isArray(result.data.records)) {
+      roadList.value = result.data.records
 
       // 不再自动设置默认路段，让用户手动选择
     } else {

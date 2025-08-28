@@ -189,13 +189,13 @@ async def get_parking_lot(lot_id: str):
         logger.error(f"获取路侧车场配置失败: {e}")
         return error_response(message="获取路侧车场配置失败")
 
-@road_dsp_router.get("/roadList", description="获取路侧车场路段列表", summary="获取路侧车场路段列表")
-async def get_road_list(
+@road_dsp_router.get("/roadPage", description="获取路侧车场路段列表", summary="获取路侧车场路段列表")
+async def get_road_page(
     lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境4799，灰度280030147")
 ):
     """获取路侧车场路段列表"""
     try:
-        res = await road_service.get_road_list(lot_id)
+        res = await road_service.get_road_page(lot_id)
         data = res.get("data")
         return success_response(data=data)
     except Exception as e:

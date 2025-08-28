@@ -79,8 +79,8 @@ export const roadVehicleApi = {
   },
 
   // 获取路段列表
-  roadList: async (lotId: string): Promise<ApiResponse> => {
-    const response = await api.get('/roadList', { params: { lot_id: lotId } })
+  roadPage: async (lotId: string): Promise<ApiResponse> => {
+    const response = await api.get('/roadPage', { params: { lot_id: lotId } })
     return response.data
   },
 

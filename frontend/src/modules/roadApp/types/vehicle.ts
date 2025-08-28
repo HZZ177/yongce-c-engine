@@ -105,16 +105,21 @@ export interface RoadPresentCarInfoRequest {
 
 // 路段信息
 export interface RoadInfo {
-  id: string
-  roadCode: string
-  roadName: string
-  parkspaceNum: number
-  parkCode: string
-  parkName: string
-  longitude?: string
-  latitude?: string
-  createTime: string
-  updateTime: string
+  id: string;
+  roadCode: string;
+  roadName: string;
+  parkspaceNum: number;
+  idleParkspaceNum?: number | null;
+  parkCode: string;
+  parkName: string;
+  longitude?: string | null;
+  latitude?: string | null;
+  isDelete?: number;
+  createTime: string;
+  updateTime: string;
+  createBy?: string;
+  updateBy?: string;
+  feeRuleName?: string;
 }
 
 // 车位信息

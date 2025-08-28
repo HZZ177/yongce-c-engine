@@ -116,18 +116,27 @@
         </div>
       </div>
 
-      <!-- 入场时间 -->
-      <div class="form-item-container">
-        <label class="form-label">入场时间</label>
-        <div class="form-input-container">
-          <el-date-picker
-            v-model="form.inTime"
-            type="datetime"
-            placeholder="选择入场时间（可选，默认当前时间）"
-            format="YYYY-MM-DD HH:mm:ss"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-          />
+      <!-- 计费规则和入场时间 -->
+      <div class="form-row">
+        <div class="form-item-container">
+          <label class="form-label">计费规则</label>
+          <div class="form-input-container">
+            <span class="fee-rule-display">{{ selectedRoadFeeRule }}</span>
+          </div>
+        </div>
+
+        <div class="form-item-container">
+          <label class="form-label">入场时间</label>
+          <div class="form-input-container">
+            <el-date-picker
+              v-model="form.inTime"
+              type="datetime"
+              placeholder="不选则默认当前时间"
+              format="YYYY-MM-DD HH:mm:ss"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              style="width: 100%"
+            />
+          </div>
         </div>
       </div>
 
@@ -194,7 +203,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoadEnvironmentStore } from '../stores/environment'
 import { useRoadHistoryStore } from '../stores/history'
@@ -246,6 +255,19 @@ const currentRoadParkspaces = ref<ParkspaceInfo[]>([])
 
 // 常量已通过导入可直接在模板中使用
 
+// 计算属性，用于获取并显示当前选定路段的计费规则名称
+const selectedRoadFeeRule = computed(() => {
+  if (!form.roadCode) {
+    return '请先选择路段';
+  }
+  const selectedRoad = roadList.value.find(road => road.roadCode === form.roadCode);
+  if (selectedRoad && selectedRoad.feeRuleName) {
+    return selectedRoad.feeRuleName;
+  } else {
+    return '暂未配置计费规则';
+  }
+});
+
 // 加载路段列表
 const loadRoadList = async () => {
   if (!envStore.currentLotId) return
@@ -257,7 +279,7 @@ const loadRoadList = async () => {
 
   try {
     const params = { lot_id: envStore.currentLotId }
-    const result = await roadVehicleApi.roadList(envStore.currentLotId)
+    const result = await roadVehicleApi.roadPage(envStore.currentLotId)
     const handleResult = ResponseHandler.handleResponse(result, '', '加载路段列表失败', false)
 
     // 记录操作历史
@@ -272,8 +294,8 @@ const loadRoadList = async () => {
       lotName: envStore.getCurrentLotName()
     })
 
-    if (handleResult.success && Array.isArray(result.data)) {
-      roadList.value = result.data
+    if (handleResult.success && result.data && Array.isArray(result.data.records)) {
+      roadList.value = result.data.records
 
       // 设置默认路段
       setDefaultRoad()
@@ -845,6 +867,24 @@ const handleCarOut = async () => {
 
 .action-button {
   min-width: 120px;
+}
+
+/* 计费规则显示样式 */
+.fee-rule-display {
+  display: inline-block;
+  width: 100%;
+  height: 32px; /* 匹配 Element Plus 默认输入框高度 */
+  line-height: 32px;
+  padding: 0 11px;
+  font-size: 0.875rem;
+  color: #606266; /* 类似禁用文本的颜色 */
+  background-color: #f5f7fa; /* 类似禁用输入框的背景色 */
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 车位状态展示样式 */

@@ -14,6 +14,7 @@ yongce_pro_endpoints:
     test: 92b9cc14ba134fc4a0fe74cbf4ef5af2
     prod: 38f188755bca474b896bb7e390589c40
   road_list: /road-park/road/roadList
+  road_page: /road-park/road/page
   tollman_list: /road-park/parking/tollman/list
   workstation_list: /road-park/parking/workstation/list
   present_car_list: /road-park/parking/presentCar/page

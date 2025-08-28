@@ -220,7 +220,7 @@ class RoadService:
 
         return new_token
 
-    async def get_road_list(self, lot_id):
+    async def get_road_page(self, lot_id):
         """获取车场路段列表"""
         token = await self.get_yongce_pro_admin_token(lot_id)
         if lot_id in self.config.get_test_support_lot_ids():
@@ -230,15 +230,16 @@ class RoadService:
         else:
             raise Exception(f"暂不支持车场【{lot_id}】")
 
-        url = base_url + self.config.get_yongce_pro_endpoint("road_list")
+        url = base_url + self.config.get_yongce_pro_endpoint("road_page")
         headers = {
             "Content-Type": "application/json",
             "token": token
         }
 
         data = {
-            "lotId": lot_id,
-            "roadName": ""
+            "stcId": lot_id,
+            "pageNum": 1,
+            "pageSize": 100
         }
         res = self.http_client.post(url=url, json=data, headers=headers, timeout=10)
         if res.status_code != 200:
