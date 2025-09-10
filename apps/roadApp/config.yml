@@ -19,6 +19,7 @@ yongce_pro_endpoints:
   workstation_list: /road-park/parking/workstation/list
   present_car_list: /road-park/parking/presentCar/page
   parkspace_page: /road-park/parkspace/page
+  pos_outSettle: /roadApi/api/app/outSettle  # POS机结算离场接口，可触发无感
 parking_lots:
   test:
   - id: '4799'

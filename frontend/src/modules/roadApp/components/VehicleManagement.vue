@@ -199,7 +199,17 @@
             class="action-button"
             :disabled="!envStore.currentLotId"
           >
-            车辆出场
+            车辆出场(欠费)
+          </el-button>
+          <el-button
+            type="warning"
+            @click="handleCarOutSettle"
+            :loading="loading.carOutSettle"
+            size="default"
+            class="action-button"
+            :disabled="!envStore.currentLotId"
+          >
+            车辆出场(同时无感)
           </el-button>
           <el-button
             type="info"
@@ -256,6 +266,7 @@ const form = reactive({
 const loading = reactive({
   carIn: false,
   carOut: false,
+  carOutSettle: false,
   roads: false,
   parkspaces: false,
   parkspaceStatus: false,
@@ -837,6 +848,94 @@ const handleCarOut = async () => {
     })
   } finally {
     loading.carOut = false
+
+    // 如果选择了路段，自动显示并刷新车位状态（无论成功失败还是异常）
+    if (form.roadCode) {
+      if (!showParkspaceStatus.value) {
+        // 如果没有显示车位状态，先显示再刷新
+        showParkspaceStatus.value = true
+        await loadParkspaceListForStatus(form.roadCode)
+      } else {
+        // 如果已经显示，直接刷新
+        await refreshParkspaceStatus()
+      }
+    }
+  }
+}
+
+// 路侧车辆出场(同时无感)
+const handleCarOutSettle = async () => {
+  if (!envStore.currentLotId) {
+    ElMessage.warning('请先选择路侧车场')
+    return
+  }
+  if (!form.roadCode) {
+    ElMessage.warning('请先选择路段')
+    return
+  }
+  if (!form.parkspaceCode) {
+    ElMessage.warning('请先选择车位')
+    return
+  }
+
+  loading.carOutSettle = true
+  const startTime = Date.now()
+
+  try {
+    const params: RoadCarInOutRequest = {
+      lot_id: envStore.currentLotId,
+      car_no: form.carNo,
+      car_type: form.carType,
+      plate_color: form.plateColor,
+      in_time: form.inTime || new Date().toLocaleString('sv-SE').replace('T', ' '),
+      source: form.source,
+      road_code: form.roadCode,
+      park_space_code: form.parkspaceCode
+    }
+
+    const result = await roadVehicleApi.carOutSettle(params)
+
+    // 使用统一的响应处理
+    const handleResult = ResponseHandler.handleResponse(result, '路侧车辆出场(同时无感)成功', '路侧车辆出场(同时无感)失败')
+
+    // 记录操作历史（无论成功失败都记录一次）
+    historyStore.addHistory({
+      operation: '路侧车辆出场(同时无感)',
+      params,
+      result: handleResult.historyResult,
+      message: handleResult.historyMessage,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    // 如果失败，不需要再抛出异常，因为已经处理过了
+  } catch (error: any) {
+    // 网络错误或其他异常的处理
+    const errorResult = ResponseHandler.handleError(error, '路侧车辆出场(同时无感)失败')
+
+    // 记录网络错误历史
+    historyStore.addHistory({
+      operation: '路侧车辆出场(同时无感)',
+      params: {
+        lot_id: envStore.currentLotId,
+        car_no: form.carNo,
+        car_type: form.carType,
+        plate_color: form.plateColor,
+        source: form.source,
+        road_code: form.roadCode,
+        park_space_code: form.parkspaceCode
+      },
+      result: errorResult.historyResult,
+      message: errorResult.message,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+  } finally {
+    loading.carOutSettle = false
 
     // 如果选择了路段，自动显示并刷新车位状态（无论成功失败还是异常）
     if (form.roadCode) {

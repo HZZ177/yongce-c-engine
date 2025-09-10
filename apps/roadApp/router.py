@@ -87,6 +87,29 @@ async def car_out(
         return error_response(data=f"车辆出场失败，报错信息：{e}")
 
 
+@road_dsp_router.get("/carOutSettle", description="路侧车辆POS机离场接口(触发无感)", summary="路侧车辆POS机离场接口(触发无感)")
+async def car_out_settle(
+        lot_id: RoadLotIdEnum = Query(..., description="车场ID，测试环境4799，灰度280030147"),
+        road_code: str = Query("", description="路段id"),
+        park_space_code: str = Query("", description="车位编号"),
+        car_no: str = Query("", description="车牌号"),
+        plate_color: str = Query(default="蓝", description="车牌颜色，中文")
+):
+    try:
+        request = RoadCarInOutRequest(
+            lot_id=lot_id,
+            road_code=road_code,
+            park_space_code=park_space_code,
+            car_no=car_no,
+            plate_color=plate_color
+        )
+        res = await road_service.car_outsettle(request)
+        return success_response(data=res)
+    except Exception as e:
+        logger.error(f"车辆【{car_no}】POS机离场失败: {e}")
+        return error_response(data=f"车POS机离场失败，报错信息：{e}")
+
+
 @road_dsp_router.get("/presentCarInfo", description="路侧在场车辆查询接口", summary="路侧在场车辆查询接口")
 async def get_present_car_info(
     car_no: str = Query("", description="车牌号"),

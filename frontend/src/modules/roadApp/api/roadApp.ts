@@ -66,6 +66,12 @@ export const roadVehicleApi = {
     return response.data
   },
 
+  // 路侧车辆出场(同时无感)
+  carOutSettle: async (params: RoadCarInOutRequest): Promise<ApiResponse> => {
+    const response = await api.get('/carOutSettle', { params })
+    return response.data
+  },
+
   // 查询路侧在场车辆
   carOnPark: async (params: RoadCarOnParkRequest): Promise<ApiResponse> => {
     const response = await api.get('/carOnPark', { params })

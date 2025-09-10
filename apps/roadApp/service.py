@@ -1,4 +1,5 @@
 import hashlib
+import time
 import uuid
 import json
 
@@ -101,6 +102,57 @@ class RoadService:
                 logger.error(f"路侧车辆出场接口调用失败！错误为【{res.json()}】")
                 raise Exception(f"路侧车辆出场接口调用失败！错误为【{res.json()}】")
             logger.info(f"路侧车辆出场接口调用成功！返回结果为【{res.json()}】")
+            return res.json()
+
+    async def car_outsettle(self, request: RoadCarInOutRequest):
+        """路侧车辆POS机离场（触发无感）"""
+        if request.lot_id in self.config.get_test_support_lot_ids():
+            url = self.config.get_yongce_pro_domain().get("test") + self.config.get_yongce_pro_endpoint("pos_outSettle")
+        elif request.lot_id in self.config.get_prod_support_lot_ids():
+            url = self.config.get_yongce_pro_domain().get("test") + self.config.get_yongce_pro_endpoint("pos_outSettle")
+        else:
+            logger.error(f"不支持的lot_id: {request.lot_id}")
+            raise Exception(f"不支持的lot_id{request.lot_id}")
+
+        park_code = self.config.get_parking_road_lot_id(request.lot_id)
+
+        present_request = RoadPresentCarInfoRequest(
+            car_no=request.car_no,
+            lot_id=request.lot_id,
+            road_code=request.road_code,
+            parkspace_code=request.park_space_code,
+            plate_color=request.plate_color
+        )
+        parking_records_list = await self.road_present_car_info(present_request)
+        parking_record_id = None
+        for i in parking_records_list.get("data"):
+            # 查询方法是模糊匹配的，确保匹配上车牌完全匹配的数据
+            if i.get("carNo") == request.car_no:
+                parking_record_id = i.get("parkingRecordId")
+                break
+        if parking_record_id is None:
+            logger.error(f"未找到车辆【{request.car_no}】的在场记录！")
+            raise Exception(f"未找到车辆【{request.car_no}】的在场记录！")
+
+        header = {
+            "Content-Type": "application/json",
+            "yongce": "yc",
+            "parkCode": park_code
+        }
+        data = {
+            "parkingRecordId": parking_record_id,
+            "queryFeeTime": str(time.strftime("%Y-%m-%d %H:%M:%S"))
+        }
+
+        res = self.http_client.post(url, headers=header, json=data)
+        if res.status_code != 200:
+            logger.error(f"路侧POS机离场接口调用失败！错误为【{res.text}】")
+            raise Exception(f"路侧POS机离场接口调用失败！错误为【{res.text}】")
+        else:
+            if not res.json().get("success") or not res.json().get("data").get("lacks"):
+                logger.error(f"路侧POS机离场接口调用失败！错误为【{res.json()}】")
+                raise Exception(f"路侧POS机离场接口调用失败！错误为【{res.json()}】")
+            logger.info(f"路侧POS机离场接口调用成功！返回结果为【{res.json()}】")
             return res.json()
 
     async def road_present_car_info(self, request: RoadPresentCarInfoRequest):
