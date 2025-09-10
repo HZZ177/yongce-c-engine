@@ -199,9 +199,10 @@
             class="action-button"
             :disabled="!envStore.currentLotId"
           >
-            车辆出场(欠费)
+            车辆出场
           </el-button>
-          <el-button
+          <!-- 暂时隐藏车辆出场(同时无感)按钮 -->
+          <!-- <el-button
             type="warning"
             @click="handleCarOutSettle"
             :loading="loading.carOutSettle"
@@ -210,7 +211,7 @@
             :disabled="!envStore.currentLotId"
           >
             车辆出场(同时无感)
-          </el-button>
+          </el-button> -->
           <el-button
             type="info"
             @click="handleToggleParkspaceStatus"
