@@ -147,8 +147,23 @@
         v-loading="loading.parkspaceStatus"
       >
         <div class="parkspace-status-header">
-          <h4>{{ getCurrentRoadName() }} - 车位状态</h4>
-          <span class="parkspace-count">共 {{ currentRoadParkspaces.length }} 个车位</span>
+          <div class="parkspace-status-title">
+            <h4>{{ getCurrentRoadName() }} - 车位状态</h4>
+            <span class="parkspace-count">共 {{ currentRoadParkspaces.length }} 个车位</span>
+          </div>
+          <div class="parkspace-status-actions">
+            <el-button
+              type="primary"
+              size="small"
+              @click="handleRefreshParkspaceStatus"
+              :loading="loading.parkspaceRefresh"
+              :disabled="!form.roadCode"
+              class="refresh-button"
+            >
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+          </div>
         </div>
         <div class="parkspace-grid">
           <div
@@ -205,6 +220,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 import { useRoadEnvironmentStore } from '../stores/environment'
 import { useRoadHistoryStore } from '../stores/history'
 import { roadVehicleApi } from '../api/roadApp'
@@ -242,7 +258,8 @@ const loading = reactive({
   carOut: false,
   roads: false,
   parkspaces: false,
-  parkspaceStatus: false
+  parkspaceStatus: false,
+  parkspaceRefresh: false
 })
 
 // 路段和车位数据
@@ -536,6 +553,57 @@ const refreshParkspaceStatus = async () => {
   } catch (error) {
     // 静默处理错误，不影响用户操作
     console.error('刷新车位状态失败:', error)
+  }
+}
+
+// 手动刷新车位状态（显示loading和用户反馈）
+const handleRefreshParkspaceStatus = async () => {
+  if (!form.roadCode || !envStore.currentLotId) {
+    ElMessage.warning('请先选择路段')
+    return
+  }
+
+  loading.parkspaceRefresh = true
+  const startTime = Date.now()
+
+  try {
+    const params = { road_code: form.roadCode, lot_id: envStore.currentLotId }
+    const result = await roadVehicleApi.parkspacePage(form.roadCode, envStore.currentLotId)
+    const handleResult = ResponseHandler.handleResponse(result, '车位状态刷新成功', '车位状态刷新失败')
+
+    // 记录操作历史
+    historyStore.addHistory({
+      operation: '刷新车位状态',
+      params,
+      result: handleResult.historyResult,
+      message: handleResult.historyMessage,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    if (handleResult.success && Array.isArray(result.data)) {
+      currentRoadParkspaces.value = result.data
+    }
+  } catch (error: any) {
+    const errorResult = ResponseHandler.handleError(error, '车位状态刷新失败')
+
+    // 记录网络错误历史
+    historyStore.addHistory({
+      operation: '刷新车位状态',
+      params: { road_code: form.roadCode, lot_id: envStore.currentLotId },
+      result: errorResult.historyResult,
+      message: errorResult.message,
+      duration: Date.now() - startTime,
+      env: envStore.currentEnv,
+      lotId: envStore.currentLotId,
+      lotName: envStore.getCurrentLotName()
+    })
+
+    console.error('刷新车位状态失败:', error)
+  } finally {
+    loading.parkspaceRefresh = false
   }
 }
 
@@ -905,7 +973,13 @@ const handleCarOut = async () => {
   border-bottom: 1px solid #e2e8f0;
 }
 
-.parkspace-status-header h4 {
+.parkspace-status-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.parkspace-status-title h4 {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
@@ -915,6 +989,27 @@ const handleCarOut = async () => {
 .parkspace-count {
   font-size: 0.875rem;
   color: #6b7280;
+}
+
+.parkspace-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.refresh-button {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+}
+
+.refresh-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
 .parkspace-grid {
