@@ -193,7 +193,7 @@ class RoadService:
 
     async def yongce_pro_admin_login(self, lot_id):
         """永策PRO平台后台登录"""
-        phone = "18227639229"
+        phone = "17742626184"
         password = "Keytop@123"
         img_code = "9078"
         img_code_key = "096b514fxxxxxxxxxxxxx"
