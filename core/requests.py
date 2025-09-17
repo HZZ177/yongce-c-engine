@@ -83,7 +83,7 @@ class RequestClient:
                 if other_params:
                     log_info["其他参数"] = other_params
             
-            logger.info(f"发送HTTP请求: {json.dumps(log_info, ensure_ascii=False, indent=2)}")
+            logger.info(f"发送HTTP请求: {json.dumps(log_info, ensure_ascii=False)}")
             
         except Exception as e:
             logger.error(f"记录请求日志失败: {str(e)}")
@@ -113,9 +113,9 @@ class RequestClient:
                 log_info["响应内容"] = "无法解析响应内容"
             
             if response.status_code >= 400:
-                logger.error(f"HTTP请求失败，返回响应: {json.dumps(log_info, ensure_ascii=False, indent=2)}")
+                logger.error(f"HTTP请求失败，返回响应: {json.dumps(log_info, ensure_ascii=False)}")
             else:
-                logger.info(f"HTTP请求成功，返回响应: {json.dumps(log_info, ensure_ascii=False, indent=2)}")
+                logger.info(f"HTTP请求成功，返回响应: {json.dumps(log_info, ensure_ascii=False)}")
                 
         except Exception as e:
             logger.error(f"记录响应日志失败: {str(e)}")
