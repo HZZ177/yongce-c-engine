@@ -307,21 +307,46 @@ class DeviceProtocol(BaseProtocol):
     def device_off(self) -> bool:
         """设备下线"""
         try:
+            # 清空心跳时间戳，这会导致心跳线程自然退出
+            self.last_heartbeat_at = None
+
+            # 等待心跳线程退出（最多等待6秒，因为心跳间隔是5秒）
+            if self.heart_thread and self.heart_thread.is_alive():
+                self.heart_thread.join(timeout=6)
+                if self.heart_thread.is_alive():
+                    logger.warning(f"设备 {self.client_ip} 心跳线程未能及时退出")
+
+            # 关闭socket连接
             if self.sock:
                 self.close()
-            self.last_heartbeat_at = None  # 清空心跳时间戳
+
+            # 重置线程引用
+            self.heart_thread = None
+            self.recv_thread = None
+
             logger.debug(f"设备 {self.client_ip} 下线成功")
             return True
         except Exception as e:
-            logger.error(f"设备下线失败: {traceback.format_exc()}")
+            logger.error(f"设备 {self.client_ip} 下线失败: {traceback.format_exc()}")
             return False
 
     def is_connected(self) -> bool:
         """检查设备是否仍然连接"""
         return self.sock is not None and not self.sock._closed
 
+    def is_heartbeat_active(self) -> bool:
+        """检查心跳线程是否活跃"""
+        return (self.heart_thread is not None and
+                self.heart_thread.is_alive() and
+                self.last_heartbeat_at is not None)
+
+    def is_healthy(self) -> bool:
+        """检查设备是否健康（连接正常且心跳活跃）"""
+        return self.is_connected() and self.is_heartbeat_active()
+
     def _watch_heart(self):
         """心跳线程"""
+        logger.debug(f"设备 {self.client_ip} 心跳线程启动")
         while True:
             try:
                 with self.heart_lock:
@@ -332,14 +357,16 @@ class DeviceProtocol(BaseProtocol):
                             self.last_heartbeat_at = time.time()
                         time.sleep(5)
                     else:
-                        # 连接已断开，清空心跳时间戳
+                        # 连接已断开，清空心跳时间戳并退出
+                        logger.warning(f"设备 {self.client_ip} 连接已断开，心跳线程退出")
                         self.last_heartbeat_at = None
                         return
             except Exception as e:
-                logger.error(f"心跳发送失败: {traceback.format_exc()}")
-                # 心跳异常，清空时间戳
+                logger.error(f"设备 {self.client_ip} 心跳发送失败: {traceback.format_exc()}")
+                # 心跳异常，清空时间戳并退出
                 self.last_heartbeat_at = None
                 break
+        logger.debug(f"设备 {self.client_ip} 心跳线程已退出")
 
 class BusinessProtocol(BaseProtocol):
     def __init__(self, server_ip: str, server_port: int, client_ip: str, client_port: int = 0):

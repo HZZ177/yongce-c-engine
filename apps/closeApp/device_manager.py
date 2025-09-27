@@ -88,22 +88,50 @@ class DeviceManager:
         env = self.environment_device.config.get_parking_lot_env(lot_id)
         return f"{env}_{lot_id}_{device_type}"
 
+    def _cleanup_device(self, device_key: str) -> None:
+        """清理指定的设备连接"""
+        if device_key in self.devices:
+            protocol = self.devices[device_key]
+            try:
+                if protocol:
+                    logger.info(f"正在清理不健康的设备连接: {device_key}")
+                    protocol.device_off()
+                del self.devices[device_key]
+                logger.info(f"设备连接清理完成: {device_key}")
+            except Exception as e:
+                logger.error(f"清理设备连接时出错 {device_key}: {e}")
+                # 即使清理失败，也要从字典中移除
+                if device_key in self.devices:
+                    del self.devices[device_key]
+
     def get_device(self, lot_id: str, device_type: str) -> Optional[DeviceProtocol]:
         """
         获取一个已连接的设备实例
-        - 如果设备已存在且连接正常，则直接返回
-        - 如果设备不存在或已断开，则尝试建立新连接
+        - 如果设备已存在且健康（连接正常且心跳活跃），则直接返回
+        - 如果设备不存在或不健康，则清理旧连接并建立新连接
         """
         device_key = self._get_device_key(lot_id, device_type)
 
-        # 检查设备是否存在且连接正常
+        # 检查设备是否存在且健康
         if device_key in self.devices:
             protocol = self.devices[device_key]
-            if protocol and protocol.is_connected():
-                logger.debug(f"复用已存在的设备连接: {device_key}")
+            if protocol and protocol.is_healthy():
+                logger.debug(f"复用已存在的健康设备连接: {device_key}")
                 return protocol
             else:
-                logger.warning(f"设备 {device_key} 连接已断开，尝试重新连接...")
+                # 设备存在但不健康，需要清理并重新建立连接
+                if protocol:
+                    if protocol.is_connected() and not protocol.is_heartbeat_active():
+                        logger.warning(f"设备 {device_key} 连接存在但心跳已停止，清理并重新连接...")
+                    elif not protocol.is_connected():
+                        logger.warning(f"设备 {device_key} 连接已断开，清理并重新连接...")
+                    else:
+                        logger.warning(f"设备 {device_key} 状态异常，清理并重新连接...")
+                else:
+                    logger.warning(f"设备 {device_key} 协议对象为空，清理并重新连接...")
+
+                # 清理不健康的设备连接
+                self._cleanup_device(device_key)
 
         # 获取设备配置
         device_config = self.environment_device.get_device_config(lot_id, device_type)
@@ -146,22 +174,34 @@ class DeviceManager:
     def shutdown_all_devices(self):
         """在应用关闭时优雅地关闭所有设备连接"""
         logger.info("开始关闭所有设备连接...")
+        device_count = len(self.devices)
+        success_count = 0
+
         for device_key, protocol in self.devices.items():
             try:
-                if protocol and protocol.is_connected():
-                    protocol.device_off()
-                    logger.info(f"设备 {device_key} 已成功下线")
+                if protocol:
+                    if protocol.is_connected():
+                        protocol.device_off()
+                        logger.info(f"设备 {device_key} 已成功下线")
+                        success_count += 1
+                    else:
+                        logger.debug(f"设备 {device_key} 已处于离线状态")
+                        success_count += 1
+                else:
+                    logger.warning(f"设备 {device_key} 协议对象为空")
             except Exception as e:
                 logger.error(f"关闭设备 {device_key} 时出错: {e}")
+
         self.devices.clear()
-        logger.info("所有设备连接已关闭")
+        logger.info(f"设备连接关闭完成: 成功 {success_count}/{device_count}")
 
     def reconcile_devices(self):
         """
         关闭所有当前活动的设备连接，以便在配置更改后重新初始化。
         """
         logger.info("配置已更改，正在协调设备连接...")
-        self.shutdown_all_devices() # 直接复用关闭逻辑
+        self.shutdown_all_devices()  # 直接复用关闭逻辑
+        logger.info("设备连接协调完成，可以重新初始化设备")
 
 
 # 创建 DeviceManager 的单例实例
